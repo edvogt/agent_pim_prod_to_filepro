@@ -1,0 +1,11 @@
+# HTTP Client for Pimcore and Shopify API communication
+requests==2.32.3
+
+# Data validation and model management (Step 2)
+pydantic==2.10.4
+
+# Environment variable management (Replacing .env.export)
+python-dotenv==1.0.1
+
+# Optional: Improved shell output for long-running sync tasks
+tqdm==4.67.1
