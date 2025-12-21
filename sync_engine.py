@@ -1,6 +1,7 @@
 # ============================================================================
 #  sync_engine.py — Orchestration Engine
-#  Version: 1.1.5
+#  Version: 1.1.6
+#  CHANGES: Added logging for empty results, improved diagnostics
 # ============================================================================
 import logging
 import time
@@ -21,6 +22,11 @@ class SyncEngine:
         logger.info(f"Starting Sync for Prefix: {part_prefix}")
         products = self.pimcore.fetch_products(part_prefix, self.config['MAX_PRODUCTS'])
         
+        if not products:
+            logger.warning(f"No products found for prefix '{part_prefix}'")
+            return
+        
+        logger.info(f"Processing {len(products)} product(s)")
         for i, p in enumerate(products):
             logger.info(f"[{i+1}/{len(products)}] Syncing SKU: {p.sku}")
             
@@ -51,5 +57,5 @@ class SyncEngine:
         
         logger.info("Sync Process Finished")
 # ============================================================================
-# End of sync_engine.py — Version: 1.1.5
+# End of sync_engine.py — Version: 1.1.6
 # ============================================================================

@@ -1,6 +1,7 @@
 # ============================================================================
 #  models.py — Pydantic Data Models
-#  Version: 1.1.3
+#  Version: 1.1.4
+#  CHANGES: Fixed HTML tag replacement, improved title truncation logic
 # ============================================================================
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -17,9 +18,9 @@ class PimcoreProduct(BaseModel):
     brand_name: str = Field(..., alias="BrandName")
     model: Optional[str] = Field(None, alias="Model")
     vendor_part_number: str = Field(..., alias="VendorPartNumber")
-    description_medium: str = Field("", alias="Description_Medium")
-    specifications_wysiwyg: str = Field("", alias="Specifications_WYSIWYG")
-    whats_in_box: str = Field("", alias="WhatsInBox")
+    description_medium: Optional[str] = Field("", alias="Description_Medium")
+    specifications_wysiwyg: Optional[str] = Field("", alias="Specifications_WYSIWYG")
+    whats_in_box: Optional[str] = Field("", alias="WhatsInBox")
     product_type_raw: Optional[str] = Field(None, alias="ProductType")
     image_asset_id: Optional[str] = None
 
@@ -30,17 +31,49 @@ class PimcoreProduct(BaseModel):
 
     @property
     def shopify_title(self) -> str:
+        """Generates a Shopify-compatible title (max 255 characters)."""
+        SHOPIFY_TITLE_MAX = 255
         model_val = self.model if self.model else self.vendor_part_number
         base_title = f"{self.brand_name} {model_val}"
-        remaining = 147 - len(base_title)
+        
+        # If base title already exceeds limit, truncate it
+        if len(base_title) >= SHOPIFY_TITLE_MAX:
+            return base_title[:SHOPIFY_TITLE_MAX]
+        
+        # Reserve space for " ..." if we need to truncate
+        remaining = SHOPIFY_TITLE_MAX - len(base_title) - 4
+        
+        # If no description or not enough space, return base title
+        if not self.description_medium or remaining <= 0:
+            return base_title
+        
+        # If description fits, append it
+        if len(self.description_medium) <= remaining:
+            return f"{base_title} {self.description_medium}"
+        
+        # Truncate description at word boundary and add ellipsis
         desc_snippet = self.description_medium[:remaining].rsplit(' ', 1)[0]
-        return f"{base_title} {desc_snippet}...".strip()
+        if desc_snippet:  # Only add if we have a snippet
+            return f"{base_title} {desc_snippet}..."
+        return base_title
 
     def get_sanitized_html(self) -> str:
+        """Sanitizes HTML content, converting h2 tags to h3."""
         def clean(text):
-            decoded = html.unescape(text) #
-            return re.sub(r'</?h2>', lambda m: '<h3>' if '<h2' in m.group() else '</h3>', decoded, flags=re.I)
-        sections = [f"<h2>Description</h2>{clean(self.description_medium)}"]
+            """Cleans HTML text by unescaping and replacing h2 with h3 tags."""
+            if text is None:
+                return ""
+            decoded = html.unescape(text)
+            # Replace opening <h2> tags with <h3>
+            text = re.sub(r'<h2>', '<h3>', decoded, flags=re.I)
+            # Replace closing </h2> tags with </h3>
+            text = re.sub(r'</h2>', '</h3>', text, flags=re.I)
+            return text
+        
+        sections = []
+        # Only add description section if it exists
+        if self.description_medium:
+            sections.append(f"<h2>Description</h2>{clean(self.description_medium)}")
         if self.specifications_wysiwyg:
             sections.append(f"<h2>Tech Specs</h2>{clean(self.specifications_wysiwyg)}")
         return "".join(sections)
