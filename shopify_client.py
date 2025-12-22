@@ -66,7 +66,7 @@ class ShopifyClient:
                         logger.error("  Please verify:")
                         logger.error("    1. Access token is correct and not expired")
                         logger.error("    2. Token has required scopes (write_products, read_products, etc.)")
-                        logger.error("    3. Token format is correct (no extra quotes or whitespace)")
+                        logger.error("    3. Store domain is correct in SHOPIFY_DOMAIN_MYSHOPIFY")
                     else:
                         logger.error(f"GraphQL request error (attempt {attempt + 1}/3): {e} - Status: {status_code}")
                 else:
@@ -82,24 +82,71 @@ class ShopifyClient:
             productCreate(input: $input) { product { id } userErrors { message } } 
         }"""
         result = self.execute_graphql(mutation, {"input": product_data})
-        errors = result.get("data", {}).get("productCreate", {}).get("userErrors", [])
+        
+        # Check for GraphQL errors first
+        if "errors" in result:
+            logger.error(f"GraphQL errors in productCreate: {result['errors']}")
+            return None
+        
+        # Safely extract data with None checking
+        data = result.get("data")
+        if data is None:
+            logger.error(f"No data in response: {result}")
+            return None
+        
+        product_create = data.get("productCreate")
+        if product_create is None:
+            logger.error(f"No productCreate in response data: {data}")
+            return None
+        
+        errors = product_create.get("userErrors", [])
         
         # If handle exists, find ID and update
         if any("taken" in err.get("message", "").lower() for err in errors):
             find_q = "query($h: String!) { productByHandle(handle: $h) { id } }"
             find_res = self.execute_graphql(find_q, {"h": product_data['handle']})
-            gid = find_res.get("data", {}).get("productByHandle", {}).get("id")
+            
+            if "errors" in find_res:
+                logger.error(f"GraphQL errors in productByHandle: {find_res['errors']}")
+                return None
+            
+            find_data = find_res.get("data") or {}
+            product_by_handle = find_data.get("productByHandle") or {}
+            gid = product_by_handle.get("id")
+            
             if gid:
                 upd_m = "mutation($i: ProductInput!) { productUpdate(input: $i) { product { id } userErrors { message } } }"
                 product_data["id"] = gid
                 upd_result = self.execute_graphql(upd_m, {"i": product_data})
-                upd_errors = upd_result.get("data", {}).get("productUpdate", {}).get("userErrors", [])
+                
+                if "errors" in upd_result:
+                    logger.error(f"GraphQL errors in productUpdate: {upd_result['errors']}")
+                    return None
+                
+                upd_data = upd_result.get("data") or {}
+                upd_product_update = upd_data.get("productUpdate") or {}
+                upd_errors = upd_product_update.get("userErrors", [])
+                
                 if upd_errors:
                     logger.error(f"Product update errors for handle '{product_data['handle']}': {upd_errors}")
+                else:
+                    logger.info(f"Product updated successfully: {gid}")
                 return gid
-        product_id = result.get("data", {}).get("productCreate", {}).get("product", {}).get("id")
-        if not product_id and errors:
-            logger.error(f"Product create failed: {errors}")
+        
+        product = product_create.get("product")
+        if product is None:
+            if errors:
+                logger.error(f"Product create failed with user errors: {errors}")
+            else:
+                logger.error(f"No product in productCreate response: {product_create}")
+            return None
+        
+        product_id = product.get("id")
+        if not product_id:
+            logger.error(f"No product ID returned. Errors: {errors}, Response: {product_create}")
+            return None
+        
+        logger.info(f"Product created successfully: {product_id}")
         return product_id
 
     def sync_variant(self, product_gid: str, sku: str, price: str, barcode: str) -> Optional[str]:
@@ -134,5 +181,5 @@ class ShopifyClient:
         except requests.RequestException as e:
             logger.error(f"Image upload error for product {p_id}: {e}")
 # ============================================================================
-# End of shopify_client.py — Version: 1.1.5
+# End of shopify_client.py — Version: 1.2.0
 # ============================================================================

@@ -296,6 +296,13 @@ class PimcoreClient:
             for item in all_nodes:
                 try:
                     node_data = item["node"].copy()
+                    # Handle None values for optional string fields - convert to empty strings
+                    if node_data.get("Description_Medium") is None:
+                        node_data["Description_Medium"] = ""
+                    if node_data.get("Specifications_WYSIWYG") is None:
+                        node_data["Specifications_WYSIWYG"] = ""
+                    if node_data.get("WhatsInBox") is None:
+                        node_data["WhatsInBox"] = ""
                     if "ImagePrimary" in node_data and node_data.get("ImagePrimary"):
                         node_data["image_asset_id"] = node_data["ImagePrimary"].get("id")
                     else:
@@ -398,6 +405,13 @@ class PimcoreClient:
             for item in nodes:
                 try:
                     node_data = item["node"].copy()
+                    # Handle None values for optional string fields - convert to empty strings
+                    if node_data.get("Description_Medium") is None:
+                        node_data["Description_Medium"] = ""
+                    if node_data.get("Specifications_WYSIWYG") is None:
+                        node_data["Specifications_WYSIWYG"] = ""
+                    if node_data.get("WhatsInBox") is None:
+                        node_data["WhatsInBox"] = ""
                     # Extract ImagePrimary.id if it exists
                     if "ImagePrimary" in node_data and node_data.get("ImagePrimary"):
                         node_data["image_asset_id"] = node_data["ImagePrimary"].get("id")

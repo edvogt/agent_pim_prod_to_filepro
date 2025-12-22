@@ -1,7 +1,7 @@
 # ============================================================================
 #  models.py — Pydantic Data Models
-#  Version: 1.1.4
-#  CHANGES: Fixed HTML tag replacement, improved title truncation logic
+#  Version: 1.2.0
+#  CHANGES: Added None handling for optional fields, improved HTML sanitization
 # ============================================================================
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -78,5 +78,5 @@ class PimcoreProduct(BaseModel):
             sections.append(f"<h2>Tech Specs</h2>{clean(self.specifications_wysiwyg)}")
         return "".join(sections)
 # ============================================================================
-# End of models.py — Version: 1.1.3
+# End of models.py — Version: 1.2.0
 # ============================================================================

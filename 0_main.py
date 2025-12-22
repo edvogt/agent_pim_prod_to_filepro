@@ -1,7 +1,7 @@
 # ============================================================================
 #  0_main.py — Sync Entry Point
-#  Version: 1.1.3
-#  CHANGES: Added logging configuration, environment variable validation
+#  Version: 1.2.0
+#  CHANGES: Removed temporary debug code, improved error handling
 # ============================================================================
 import os
 import argparse
@@ -40,7 +40,8 @@ def main():
         "PIMCORE_BASE_URL": os.getenv("PIMCORE_BASE_URL"),
         "PIMCORE_ENDPOINT_NAME": os.getenv("PIMCORE_ENDPOINT_NAME"),
         "PIMCORE_API_KEY": os.getenv("PIMCORE_API_KEY"),
-        "SHOPIFY_DOMAIN_MYSHOPIFY": os.getenv("SHOPIFY_DOMAIN_MYSHOPIFY"),        "SHOPIFY_ADMIN_TOKEN": os.getenv("SHOPIFY_ADMIN_TOKEN"),
+        "SHOPIFY_DOMAIN_MYSHOPIFY": os.getenv("SHOPIFY_DOMAIN_MYSHOPIFY"),
+        "SHOPIFY_ADMIN_TOKEN": os.getenv("SHOPIFY_ADMIN_TOKEN"),
         "SHOPIFY_API_VERSION": os.getenv("SHOPIFY_API_VERSION")
     }
     
@@ -56,16 +57,6 @@ def main():
     logger.info(f"  PIMCORE_ENDPOINT_NAME: {required_vars['PIMCORE_ENDPOINT_NAME']}")
     logger.info(f"  PIMCORE_API_KEY: {'*' * min(len(required_vars['PIMCORE_API_KEY'] or ''), 20)}... (hidden)")
     logger.info("=" * 80)
-    
-    # TEMPORARY: Show Shopify token for debugging - REMOVE THIS AFTER DEBUGGING
-    shopify_token_raw = required_vars.get("SHOPIFY_ADMIN_TOKEN", "")
-    if shopify_token_raw:
-        logger.info("=" * 80)
-        logger.info("DEBUG: Shopify Token (TEMPORARY - REMOVE AFTER DEBUGGING):")
-        logger.info(f"  SHOPIFY_ADMIN_TOKEN: {shopify_token_raw}")
-        logger.info(f"  Token length: {len(shopify_token_raw)} characters")
-        logger.info(f"  Token starts with: {shopify_token_raw[:10]}...")
-        logger.info("=" * 80)
     
     pim_client = PimcoreClient(
         base_url=required_vars["PIMCORE_BASE_URL"],
@@ -187,19 +178,6 @@ def main():
     shopify_token = shopify_token.strip('"\'').strip()
     shopify_domain = (required_vars["SHOPIFY_DOMAIN_MYSHOPIFY"] or "").strip()
     
-    # TEMPORARY: Show cleaned token value for debugging - REMOVE AFTER DEBUGGING
-    logger.info("=" * 80)
-    logger.info("DEBUG: Shopify Token (Cleaned - TEMPORARY - REMOVE AFTER DEBUGGING):")
-    logger.info(f"  Cleaned token: {shopify_token}")
-    logger.info(f"  Token length: {len(shopify_token)} characters")
-    logger.info(f"  Domain: {shopify_domain}")
-    logger.info("=" * 80)
-    
-    # Validate token format (should start with shpat_ or shpca_ or similar)
-    if shopify_token and not shopify_token.startswith(('shpat_', 'shpca_', 'shpct_')):
-        logger.warning(f"⚠️  Shopify token doesn't match expected format (usually starts with shpat_)")
-        logger.warning(f"   Token preview: {shopify_token[:10]}... (first 10 chars)")
-    
     shop_client = ShopifyClient(
         domain=shopify_domain,
         token=shopify_token,
@@ -219,5 +197,5 @@ def main():
 if __name__ == "__main__":
     main()
 # ============================================================================
-# End of 0_main.py — Version: 1.1.3
+# End of 0_main.py — Version: 1.2.0
 # ============================================================================
