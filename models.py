@@ -18,6 +18,7 @@ class PimcoreProduct(BaseModel):
     brand_name: str = Field(..., alias="BrandName")
     model: Optional[str] = Field(None, alias="Model")
     vendor_part_number: str = Field(..., alias="VendorPartNumber")
+    description_short: Optional[str] = Field("", alias="Description_Short")
     description_medium: Optional[str] = Field("", alias="Description_Medium")
     specifications_wysiwyg: Optional[str] = Field("", alias="Specifications_WYSIWYG")
     whats_in_box: Optional[str] = Field("", alias="WhatsInBox")
@@ -44,15 +45,15 @@ class PimcoreProduct(BaseModel):
         remaining = SHOPIFY_TITLE_MAX - len(base_title) - 4
         
         # If no description or not enough space, return base title
-        if not self.description_medium or remaining <= 0:
+        if not self.description_short or remaining <= 0:
             return base_title
         
         # If description fits, append it
-        if len(self.description_medium) <= remaining:
-            return f"{base_title} {self.description_medium}"
+        if len(self.description_short) <= remaining:
+            return f"{base_title} {self.description_short}"
         
         # Truncate description at word boundary and add ellipsis
-        desc_snippet = self.description_medium[:remaining].rsplit(' ', 1)[0]
+        desc_snippet = self.description_short[:remaining].rsplit(' ', 1)[0]
         if desc_snippet:  # Only add if we have a snippet
             return f"{base_title} {desc_snippet}..."
         return base_title

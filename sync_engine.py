@@ -1,7 +1,7 @@
 # ============================================================================
 #  sync_engine.py — Orchestration Engine
-#  Version: 1.2.0
-#  CHANGES: Improved error handling and logging
+#  Version: 1.2.1
+#  CHANGES: Improved error handling and logging, added MPN metafield support
 # ============================================================================
 import logging
 import time
@@ -45,7 +45,8 @@ class SyncEngine:
 
             # 2. Variant & Image Sync
             if p_gid:
-                self.shopify.sync_variant(p_gid, p.sku, p.selected_price, p.upc)
+                # Pass vendor_part_number as MPN (Manufacturer Part Number)
+                self.shopify.sync_variant(p_gid, p.sku, p.selected_price, p.upc, mpn=p.vendor_part_number)
                 if p.image_asset_id:
                     img = self.pimcore.get_asset_data(p.image_asset_id)
                     if img:
@@ -57,5 +58,5 @@ class SyncEngine:
         
         logger.info("Sync Process Finished")
 # ============================================================================
-# End of sync_engine.py — Version: 1.2.0
+# End of sync_engine.py — Version: 1.2.1
 # ============================================================================

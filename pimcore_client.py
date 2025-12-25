@@ -258,6 +258,7 @@ class PimcoreClient:
                 BrandName
                 Model
                 VendorPartNumber
+                Description_Short
                 Description_Medium
                 Specifications_WYSIWYG
                 WhatsInBox
@@ -297,6 +298,8 @@ class PimcoreClient:
                 try:
                     node_data = item["node"].copy()
                     # Handle None values for optional string fields - convert to empty strings
+                    if node_data.get("Description_Short") is None:
+                        node_data["Description_Short"] = ""
                     if node_data.get("Description_Medium") is None:
                         node_data["Description_Medium"] = ""
                     if node_data.get("Specifications_WYSIWYG") is None:
@@ -349,6 +352,7 @@ class PimcoreClient:
                 BrandName
                 Model
                 VendorPartNumber
+                Description_Short
                 Description_Medium
                 Specifications_WYSIWYG
                 WhatsInBox
@@ -406,6 +410,8 @@ class PimcoreClient:
                 try:
                     node_data = item["node"].copy()
                     # Handle None values for optional string fields - convert to empty strings
+                    if node_data.get("Description_Short") is None:
+                        node_data["Description_Short"] = ""
                     if node_data.get("Description_Medium") is None:
                         node_data["Description_Medium"] = ""
                     if node_data.get("Specifications_WYSIWYG") is None:
@@ -438,7 +444,7 @@ class PimcoreClient:
         query = """query($limit: Int) {
           getProdM06Listing(first: $limit) {
             edges { node { id sku upc WebPrice MAP Retail BrandName Model VendorPartNumber 
-                           Description_Medium Specifications_WYSIWYG WhatsInBox
+                           Description_Short Description_Medium Specifications_WYSIWYG WhatsInBox
                            ImagePrimary { id } } }
           }
         }"""
