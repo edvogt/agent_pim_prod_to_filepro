@@ -1,7 +1,7 @@
 # ============================================================================
 #  models.py — Pydantic Data Models
-#  Version: 1.2.0
-#  CHANGES: Added None handling for optional fields, improved HTML sanitization
+#  Version: 1.3.0
+#  CHANGES: Added None handling for optional fields, improved HTML sanitization, web_price fallback to retail_price
 # ============================================================================
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -26,8 +26,19 @@ class PimcoreProduct(BaseModel):
     image_asset_id: Optional[str] = None
 
     @property
+    def effective_web_price(self) -> float:
+        """Returns web_price if > 0, otherwise returns retail_price."""
+        if self.web_price and self.web_price > 0:
+            return self.web_price
+        return self.retail_price if self.retail_price else 0.0
+
+    @property
     def selected_price(self) -> str:
-        prices = [p for p in [self.web_price, self.map_price, self.retail_price] if p > 0]
+        """Selects the minimum price from available prices.
+        If web_price is null/zero, uses retail_price as web_price value."""
+        # Use effective_web_price (web_price if available, otherwise retail_price)
+        effective_web = self.effective_web_price
+        prices = [p for p in [effective_web, self.map_price, self.retail_price] if p > 0]
         return str(min(prices)) if prices else "0.00"
 
     @property
@@ -79,5 +90,5 @@ class PimcoreProduct(BaseModel):
             sections.append(f"<h2>Tech Specs</h2>{clean(self.specifications_wysiwyg)}")
         return "".join(sections)
 # ============================================================================
-# End of models.py — Version: 1.2.0
+# End of models.py — Version: 1.3.0
 # ============================================================================

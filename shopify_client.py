@@ -302,16 +302,8 @@ class ShopifyClient:
                     logger.warning(f"   Returned value: '{actual_value}'")
                     return False
             else:
-                logger.warning(f"⚠️  MetafieldSet returned no metafields in response for {namespace}.{key}")
-                logger.warning(f"   This usually means the metafield definition doesn't exist in Shopify Admin.")
-                logger.warning(f"   Full metafieldsSet response: {json.dumps(metafields_set, indent=2)}")
-                logger.warning(f"   SOLUTION: Create the metafield definition in Shopify Admin:")
-                logger.warning(f"     1. Go to Settings → Custom data → Product variants")
-                logger.warning(f"     2. Click 'Add definition'")
-                logger.warning(f"     3. Set Namespace and key: 'custom.vendor_part'")
-                logger.warning(f"     4. Set Type: 'Single line text'")
-                logger.warning(f"     5. Set Name: 'MPN' (optional)")
-                logger.warning(f"     6. Save and try syncing again")
+                logger.error(f"❌ MetafieldSet returned no metafields in response for {namespace}.{key}")
+                logger.debug(f"   Full metafieldsSet response: {json.dumps(metafields_set, indent=2)}")
                 return False
         except Exception as e:
             logger.error(f"❌ Exception setting metafield {namespace}.{key} for variant {variant_gid}: {e}")
@@ -331,7 +323,7 @@ class ShopifyClient:
             if v_id:
                 payload = {"variant": {
                     "sku": sku, "price": price, "barcode": barcode or None,
-                    "inventory_management": "shopify", "inventory_policy": "continue"
+                    "inventory_management": None, "inventory_policy": "continue"
                 }}
                 put_res = self.session.put(f"{self.rest_url}/variants/{v_id}.json", json=payload)
                 put_res.raise_for_status()
@@ -415,14 +407,8 @@ class ShopifyClient:
                     
                     # Set Google Shopping MPN metafield
                     google_success = self.set_variant_metafield(variant_gid, "mm-google-shopping", "mpn", mpn)
-                    if google_success:
-                        logger.info(f"✅ Google / MPN metafield (mm-google-shopping.mpn) set successfully")
-                        # Verify it was actually set
-                        verify_google = self.get_variant_metafield(variant_gid, "mm-google-shopping", "mpn")
-                        if verify_google and verify_google.get("value") == mpn:
-                            logger.info(f"✅ Verified: Google / MPN metafield value is '{verify_google.get('value')}'")
-                    else:
-                        logger.warning(f"⚠️  Failed to set Google / MPN metafield")
+                    if not google_success:
+                        logger.error(f"❌ Failed to set Google / MPN metafield")
                     
                     # Set standard MPN metafield
                     # Use the namespace/key we found, or default to custom.vendor_part (the actual MPN metafield key)
@@ -437,43 +423,8 @@ class ShopifyClient:
                         logger.info(f"   Using MPN metafield definition: {mpn_namespace}.{mpn_key} (as defined in Shopify)")
                     
                     mpn_success = self.set_variant_metafield(variant_gid, mpn_namespace, mpn_key, mpn)
-                    if mpn_success:
-                        logger.info(f"✅ MPN metafield ({mpn_namespace}.{mpn_key}) set successfully")
-                        # Longer delay to allow Shopify to process and index the metafield
-                        time.sleep(1.5)
-                        # Verify it was actually set
-                        verify_mpn = self.get_variant_metafield(variant_gid, mpn_namespace, mpn_key)
-                        if verify_mpn and verify_mpn.get("value") == mpn:
-                            logger.info(f"✅ Verified: MPN metafield value is '{verify_mpn.get('value')}'")
-                        elif verify_mpn:
-                            logger.warning(f"⚠️  MPN metafield exists but value mismatch: expected '{mpn}', got '{verify_mpn.get('value')}'")
-                        else:
-                            # Query all metafields again to see what actually exists
-                            logger.info(f"   Querying all metafields to see what's actually on the variant...")
-                            updated_metafields = self.get_variant_metafields(variant_gid)
-                            if updated_metafields:
-                                logger.info(f"   Found {len(updated_metafields)} metafield(s) on variant:")
-                                for mf in updated_metafields:
-                                    logger.info(f"     - {mf.get('namespace')}.{mf.get('key')} = '{mf.get('value')}'")
-                                # Check if MPN is there with different namespace/key
-                                found_mpn = False
-                                for mf in updated_metafields:
-                                    if 'mpn' in mf.get('key', '').lower() and mf.get('namespace', '').lower() != 'mm-google-shopping':
-                                        logger.info(f"   ✓ Found MPN metafield: {mf.get('namespace')}.{mf.get('key')} = '{mf.get('value')}'")
-                                        found_mpn = True
-                                        if mf.get('value') == mpn:
-                                            logger.info(f"   ✅ MPN value matches expected value!")
-                                        break
-                                if not found_mpn:
-                                    logger.warning(f"   ⚠️  No MPN metafield found in the metafields list, but metafieldSet reported success.")
-                                    logger.warning(f"   The metafield may be there but not queryable yet, or the namespace/key may be different.")
-                                    logger.warning(f"   Please check in Shopify Admin to confirm the MPN value was saved.")
-                            else:
-                                logger.warning(f"   ⚠️  No metafields found when querying variant.")
-                                logger.warning(f"   However, metafieldSet reported success, so the value should be saved.")
-                                logger.warning(f"   Please check in Shopify Admin to confirm the MPN value was set correctly.")
-                    else:
-                        logger.warning(f"⚠️  Failed to set MPN metafield ({mpn_namespace}.{mpn_key}) - check logs above for details")
+                    if not mpn_success:
+                        logger.error(f"❌ Failed to set MPN metafield ({mpn_namespace}.{mpn_key}) - check logs above for details")
                 
                 return str(v_id)
         except requests.RequestException as e:

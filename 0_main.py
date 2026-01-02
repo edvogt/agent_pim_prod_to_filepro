@@ -1,7 +1,7 @@
 # ============================================================================
 #  0_main.py — Sync Entry Point
-#  Version: 1.2.0
-#  CHANGES: Removed temporary debug code, improved error handling
+#  Version: 1.3.0
+#  CHANGES: Removed temporary debug code, improved error handling, added verbose mode with compact output
 # ============================================================================
 import os
 import argparse
@@ -11,12 +11,6 @@ from pimcore_client import PimcoreClient
 from shopify_client import ShopifyClient
 from sync_engine import SyncEngine
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
 def main():
     # Explicitly clear PIMCORE_BASE_URL if it's localhost before loading .env.export
     if os.getenv("PIMCORE_BASE_URL") == "http://localhost":
@@ -25,15 +19,38 @@ def main():
     # Load .env.export with override to ensure it takes precedence
     load_dotenv(".env.export", override=True)
     
-    logger = logging.getLogger(__name__)
-
     parser = argparse.ArgumentParser(description="Pimcore to Shopify Sync")
     parser.add_argument("--prefix", help="PartPrefix to filter (required unless --test-no-filter)")
     parser.add_argument("--max", type=int, default=5, help="Max products to sync")
     parser.add_argument("--dry-run", action="store_true", help="Simulate only")
     parser.add_argument("--test-no-filter", action="store_true", help="Test query without filter to inspect available fields")
     parser.add_argument("--test-records-exist", action="store_true", help="Test if any records exist on Pimcore server")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose/debug logging output")
     args = parser.parse_args()
+    
+    # Configure logging based on verbose mode
+    if args.verbose:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+    else:
+        # Non-verbose mode: only show errors and warnings, suppress INFO
+        logging.basicConfig(
+            level=logging.WARNING,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        # Create a separate logger for compact output (when not verbose)
+        import sys
+        compact_handler = logging.StreamHandler(sys.stdout)
+        compact_handler.setLevel(logging.INFO)
+        compact_handler.setFormatter(logging.Formatter('%(message)s'))
+        compact_logger = logging.getLogger('compact')
+        compact_logger.addHandler(compact_handler)
+        compact_logger.setLevel(logging.INFO)
+        compact_logger.propagate = False
+    
+    logger = logging.getLogger(__name__)
 
     # Validate required environment variables
     required_vars = {
@@ -187,15 +204,15 @@ def main():
     config = {
         "MAX_PRODUCTS": args.max,
         "DRY_RUN": args.dry_run,
-        "DELAY_BETWEEN_PRODUCTS": int(os.getenv("DELAY_BETWEEN_PRODUCTS", 2)),
-        "DELAY_AFTER_IMAGE": int(os.getenv("DELAY_AFTER_IMAGE", 3))
+        "DELAY_BETWEEN_PRODUCTS": float(os.getenv("DELAY_BETWEEN_PRODUCTS", 1.5)),
+        "DELAY_AFTER_IMAGE": float(os.getenv("DELAY_AFTER_IMAGE", 1.5))
     }
 
     engine = SyncEngine(pim_client, shop_client, config)
-    engine.run(part_prefix=args.prefix)
+    engine.run(part_prefix=args.prefix, verbose=args.verbose)
 
 if __name__ == "__main__":
     main()
 # ============================================================================
-# End of 0_main.py — Version: 1.2.0
+# End of 0_main.py — Version: 1.3.0
 # ============================================================================
