@@ -1,26 +1,29 @@
 # ============================================================================
-#  sync_engine.py — Orchestration Engine
-#  Version: 1.3.0
-#  CHANGES: Improved error handling and logging, added MPN metafield support, verbose mode with compact output
+#  sync_engine.py — Product Fetching Engine
+#  Version: 2.1.0
+#  CHANGES: Added CSV export functionality with tab-delimited format containing fields previously sent to Shopify
 # ============================================================================
 import logging
-import time
+import csv
+from datetime import datetime
 from pimcore_client import PimcoreClient
-from shopify_client import ShopifyClient
 
 logger = logging.getLogger(__name__)
 
 class SyncEngine:
-    def __init__(self, pimcore: PimcoreClient, shopify: ShopifyClient, config: dict):
-        """Initializes engine with source and destination clients."""
+    def __init__(self, pimcore: PimcoreClient, config: dict):
+        """Initializes engine with Pimcore client."""
         self.pimcore = pimcore
-        self.shopify = shopify
         self.config = config
 
     def run(self, part_prefix: str, verbose: bool = False):
-        """Executes the main sync loop for the specified prefix."""
+        """Fetches products and exports to tab-delimited CSV file."""
+        # Generate output filename with prefix and timestamp
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.output_file = f"{part_prefix}-pimcore-export-{timestamp}.tsv"
+
         if verbose:
-            logger.info(f"Starting Sync for Prefix: {part_prefix}")
+            logger.info(f"Starting Product Fetch for Prefix: {part_prefix}")
         
         products = self.pimcore.fetch_products(part_prefix, self.config['MAX_PRODUCTS'])
         
@@ -34,86 +37,62 @@ class SyncEngine:
         
         total = len(products)
         
-        # Print header in compact mode
-        if not verbose:
-            compact_logger = logging.getLogger('compact')
-            compact_logger.info("SKU,Status Image,Status Completed,Item# of Total")
-        
         if verbose:
             logger.info(f"Processing {total} product(s)")
+            logger.info(f"Writing output to: {self.output_file}")
         
-        for i, p in enumerate(products, 1):
-            if verbose:
-                logger.info(f"[{i}/{total}] Syncing SKU: {p.sku}")
-            
-            if self.config.get('DRY_RUN'):
-                if verbose:
-                    logger.info(f"DRY-RUN: Skipping {p.sku}")
-                else:
-                    compact_logger = logging.getLogger('compact')
-                    compact_logger.info(f"{p.sku},-,DRY-RUN,{i}/{total}")
-                continue
-
-            image_status = ""
-            completed_status = ""
-            
-            # 1. Product Upsert
-            p_gid = self.shopify.upsert_product({
-                "title": p.shopify_title,
-                "descriptionHtml": p.get_sanitized_html(),
-                "vendor": p.brand_name,
-                "handle": p.sku.lower().replace(" ", "-"),
-                "status": "ACTIVE"
-            })
-
-            # 2. Variant & Image Sync
-            if p_gid:
-                # Pass vendor_part_number as MPN (Manufacturer Part Number)
-                self.shopify.sync_variant(p_gid, p.sku, p.selected_price, p.upc, mpn=p.vendor_part_number)
-                if p.image_asset_id:
-                    img = self.pimcore.get_asset_data(p.image_asset_id)
-                    if img:
-                        try:
-                            self.shopify.upload_image(p_gid, img)
-                            image_status = "✓"
-                            if verbose:
-                                logger.info(f"Image uploaded successfully")
-                        except Exception as e:
-                            image_status = "✗"
-                            if verbose:
-                                logger.error(f"Image upload failed: {e}")
-                    else:
-                        image_status = "-"
-                        if verbose:
-                            logger.warning(f"No image data retrieved")
-                else:
-                    image_status = "-"
+        # Define CSV header with fields previously sent to Shopify
+        fieldnames = [
+            'title',
+            'description',
+            'vendor',
+            'handle',
+            'status',
+            'sku',
+            'price',
+            'barcode',
+            'mpn',
+            'image_asset_id'
+        ]
+        
+        # Write CSV file with tab delimiter
+        try:
+            with open(self.output_file, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter='\t')
+                
+                # Write header row
+                writer.writeheader()
+                
+                # Write product rows
+                for i, p in enumerate(products, 1):
                     if verbose:
-                        logger.debug(f"No image_asset_id for {p.sku}")
-                
-                completed_status = "✓"
-                if verbose:
-                    logger.info(f"Product sync completed")
-                
-                time.sleep(self.config.get('DELAY_AFTER_IMAGE', 1.5))
+                        logger.info(f"[{i}/{total}] Exporting SKU: {p.sku}")
+                    
+                    # Prepare row data with fields previously sent to Shopify
+                    row = {
+                        'title': p.shopify_title,
+                        'description': p.get_plain_text_description(),
+                        'vendor': p.brand_name,
+                        'handle': p.sku.lower().replace(" ", "-"),
+                        'status': 'ACTIVE',
+                        'sku': p.sku,
+                        'price': p.selected_price,
+                        'barcode': p.upc or '',
+                        'mpn': p.vendor_part_number,
+                        'image_asset_id': p.image_asset_id or ''
+                    }
+                    
+                    writer.writerow(row)
+            
+            if verbose:
+                logger.info(f"Successfully exported {total} product(s) to {self.output_file}")
             else:
-                completed_status = "✗"
-                if verbose:
-                    logger.error(f"Product creation/update failed")
-            
-            # 3. Compact output
-            if not verbose:
                 compact_logger = logging.getLogger('compact')
-                compact_logger.info(f"{p.sku},{image_status},{completed_status},{i}/{total}")
-            
-            # 4. Throttle delay
-            time.sleep(self.config.get('DELAY_BETWEEN_PRODUCTS', 1.5))
-        
-        if verbose:
-            logger.info("Sync Process Finished")
-        else:
-            compact_logger = logging.getLogger('compact')
-            compact_logger.info(f"Sync completed: {total} product(s) processed")
+                compact_logger.info(f"Exported {total} product(s) to {self.output_file}")
+                
+        except Exception as e:
+            logger.error(f"Error writing CSV file: {e}")
+            raise
 # ============================================================================
 # End of sync_engine.py — Version: 1.3.0
 # ============================================================================

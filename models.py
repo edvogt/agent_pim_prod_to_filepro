@@ -43,17 +43,17 @@ class PimcoreProduct(BaseModel):
 
     @property
     def shopify_title(self) -> str:
-        """Generates a Shopify-compatible title (max 255 characters)."""
-        SHOPIFY_TITLE_MAX = 255
+        """Generates a product title (max 255 characters)."""
+        TITLE_MAX = 255
         model_val = self.model if self.model else self.vendor_part_number
         base_title = f"{self.brand_name} {model_val}"
         
         # If base title already exceeds limit, truncate it
-        if len(base_title) >= SHOPIFY_TITLE_MAX:
-            return base_title[:SHOPIFY_TITLE_MAX]
+        if len(base_title) >= TITLE_MAX:
+            return base_title[:TITLE_MAX]
         
         # Reserve space for " ..." if we need to truncate
-        remaining = SHOPIFY_TITLE_MAX - len(base_title) - 4
+        remaining = TITLE_MAX - len(base_title) - 4
         
         # If no description or not enough space, return base title
         if not self.description_short or remaining <= 0:
@@ -81,7 +81,7 @@ class PimcoreProduct(BaseModel):
             # Replace closing </h2> tags with </h3>
             text = re.sub(r'</h2>', '</h3>', text, flags=re.I)
             return text
-        
+
         sections = []
         # Only add description section if it exists
         if self.description_medium:
@@ -89,6 +89,26 @@ class PimcoreProduct(BaseModel):
         if self.specifications_wysiwyg:
             sections.append(f"<h2>Tech Specs</h2>{clean(self.specifications_wysiwyg)}")
         return "".join(sections)
+
+    def get_plain_text_description(self) -> str:
+        """Returns plain text description without HTML tags or 'Description' header."""
+        def strip_html(text):
+            """Strips HTML tags and decodes entities."""
+            if text is None:
+                return ""
+            decoded = html.unescape(text)
+            # Remove all HTML tags
+            plain = re.sub(r'<[^>]+>', ' ', decoded)
+            # Collapse multiple spaces
+            plain = re.sub(r'\s+', ' ', plain)
+            return plain.strip()
+
+        sections = []
+        if self.description_medium:
+            sections.append(strip_html(self.description_medium))
+        if self.specifications_wysiwyg:
+            sections.append(strip_html(self.specifications_wysiwyg))
+        return " ".join(sections)
 # ============================================================================
 # End of models.py — Version: 1.3.0
 # ============================================================================
