@@ -100,9 +100,10 @@ class SyncEngine:
                         # Remove SKU from beginning
                         if sku:
                             text = re.sub(r'^' + re.escape(sku) + r'\s+', '', text)
-                        # Replace " / " with "/" and " - " with "-"
+                        # Replace separators
                         text = text.replace(" / ", "/")
                         text = text.replace(" - ", "-")
+                        text = text.replace(" with ", "/")
                         # Keep only a-z, A-Z, 0-9, /, -, and space
                         text = re.sub(r'[^a-zA-Z0-9/\- ]', '', text)
                         # Collapse multiple spaces
