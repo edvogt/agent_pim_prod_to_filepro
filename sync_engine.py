@@ -123,7 +123,7 @@ class SyncEngine:
                         'VENDOR PART#': p.vendor_part_number,
                         'EAR part#': format_ear_part(p.sku),
                         'New Invoice Description': sanitize_description(p.shopify_title, p.vendor_part_number, p.brand_name),
-                        'Old Invoice Description': sanitize_description(p.get_plain_text_description(), p.vendor_part_number),
+                        'Old Invoice Description': sanitize_description(p.get_plain_text_description(), p.vendor_part_number, p.brand_name),
                         'comment': f'Pimcore asset: {p.id}',
                         'Cost': p.cost or '',
                         'retail': p.selected_price,
