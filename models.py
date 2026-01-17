@@ -95,24 +95,15 @@ class PimcoreProduct(BaseModel):
         return "".join(sections)
 
     def get_plain_text_description(self) -> str:
-        """Returns plain text description without HTML tags or 'Description' header."""
-        def strip_html(text):
-            """Strips HTML tags and decodes entities."""
-            if text is None:
-                return ""
-            decoded = html.unescape(text)
-            # Remove all HTML tags
-            plain = re.sub(r'<[^>]+>', ' ', decoded)
-            # Collapse multiple spaces
-            plain = re.sub(r'\s+', ' ', plain)
-            return plain.strip()
-
-        sections = []
-        if self.description_medium:
-            sections.append(strip_html(self.description_medium))
-        if self.specifications_wysiwyg:
-            sections.append(strip_html(self.specifications_wysiwyg))
-        return " ".join(sections)
+        """Returns plain text description without HTML tags (description_medium only)."""
+        if not self.description_medium:
+            return ""
+        decoded = html.unescape(self.description_medium)
+        # Remove all HTML tags
+        plain = re.sub(r'<[^>]+>', ' ', decoded)
+        # Collapse multiple spaces
+        plain = re.sub(r'\s+', ' ', plain)
+        return plain.strip()
 # ============================================================================
 # End of models.py — Version: 1.3.0
 # ============================================================================
