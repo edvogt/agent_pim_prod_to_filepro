@@ -5,6 +5,7 @@
 # ============================================================================
 import logging
 import csv
+import re
 from datetime import datetime
 from pimcore_client import PimcoreClient
 
@@ -43,16 +44,29 @@ class SyncEngine:
         
         # Define CSV header with fields previously sent to Shopify
         fieldnames = [
-            'title',
-            'description',
-            'vendor',
-            'handle',
-            'status',
-            'sku',
-            'price',
-            'barcode',
-            'mpn',
-            'image_asset_id'
+            'VENDOR PART#',
+            'EAR part#',
+            'New Invoice Description',
+            'Old Invoice Description',
+            'comment',
+            'Cost',
+            'retail',
+            'web price',
+            'Part# Prefix',
+            'buyer/type',
+            'Vendor#',
+            'Descrip Vendor Name',
+            'category',
+            'Flag',
+            'WAN LINK',
+            'LAN LINK',
+            'weight(lbs)',
+            'MAP',
+            'IMAGE',
+            'CAP FILE',
+            'caption text',
+            'Sku',
+            'UPC'
         ]
         
         # Write CSV file with tab delimiter
@@ -63,23 +77,56 @@ class SyncEngine:
                 # Write header row
                 writer.writeheader()
                 
+                # Helper to format EAR part#
+                def format_ear_part(sku):
+                    cleaned = re.sub(r'[^a-zA-Z0-9]', '', sku)
+                    formatted = cleaned[:3] + '-' + cleaned[3:]
+                    if len(formatted) > 20:
+                        formatted = formatted[:4] + formatted[-3:] + formatted[7:]
+                    return formatted[:20]
+
                 # Write product rows
                 for i, p in enumerate(products, 1):
                     if verbose:
                         logger.info(f"[{i}/{total}] Exporting SKU: {p.sku}")
                     
+                    # Helper to sanitize description fields
+                    def sanitize_description(text):
+                        if not text:
+                            return ""
+                        # Replace " / " with "/"
+                        text = text.replace(" / ", "/")
+                        # Keep only a-z, A-Z, 0-9, /, -, and space
+                        text = re.sub(r'[^a-zA-Z0-9/\- ]', '', text)
+                        # Collapse multiple spaces
+                        text = re.sub(r' +', ' ', text)
+                        return text.strip()
+
                     # Prepare row data with fields previously sent to Shopify
                     row = {
-                        'title': p.shopify_title,
-                        'description': p.get_plain_text_description(),
-                        'vendor': p.brand_name,
-                        'handle': p.sku.lower().replace(" ", "-"),
-                        'status': 'ACTIVE',
-                        'sku': p.sku,
-                        'price': p.selected_price,
-                        'barcode': p.upc or '',
-                        'mpn': p.vendor_part_number,
-                        'image_asset_id': p.image_asset_id or ''
+                        'VENDOR PART#': p.vendor_part_number,
+                        'EAR part#': format_ear_part(p.sku),
+                        'New Invoice Description': sanitize_description(p.shopify_title),
+                        'Old Invoice Description': sanitize_description(p.get_plain_text_description()),
+                        'comment': f'Pimcore asset: {p.id}',
+                        'Cost': p.cost or '',
+                        'retail': p.selected_price,
+                        'web price': p.web_price or '',
+                        'Part# Prefix': p.part_prefix or '',
+                        'buyer/type': 'COM',
+                        'Descrip Vendor Name': p.brand_name,
+                        'Vendor#': p.part_prefix or '',
+                        'category': '950',
+                        'Flag': p.upc or '',
+                        'WAN LINK': p.product_webpage or '',
+                        'LAN LINK': f'https://pimcore.ear.net/admin/login/deeplink?object_{p.id}_object',
+                        'weight(lbs)': p.weight or '',
+                        'MAP': p.map_price or '',
+                        'IMAGE': '',
+                        'CAP FILE': '',
+                        'caption text': '',
+                        'Sku': p.vendor_part_number,
+                        'UPC': p.upc or ''
                     }
                     
                     writer.writerow(row)
@@ -94,5 +141,5 @@ class SyncEngine:
             logger.error(f"Error writing CSV file: {e}")
             raise
 # ============================================================================
-# End of sync_engine.py — Version: 1.3.0
+# End of sync_engine.py — Version: 2.1.0
 # ============================================================================

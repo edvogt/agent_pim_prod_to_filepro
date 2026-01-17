@@ -255,6 +255,7 @@ class PimcoreClient:
                 WebPrice
                 MAP
                 Retail
+                Cost
                 BrandName
                 Model
                 VendorPartNumber
@@ -263,6 +264,8 @@ class PimcoreClient:
                 Specifications_WYSIWYG
                 WhatsInBox
                 PartPrefix
+                ProductWebpage
+                Weight
                 ImagePrimary {{
                   id
                 }}
@@ -306,6 +309,13 @@ class PimcoreClient:
                         node_data["Specifications_WYSIWYG"] = ""
                     if node_data.get("WhatsInBox") is None:
                         node_data["WhatsInBox"] = ""
+                    # Handle None values for numeric fields - convert to 0.0
+                    if node_data.get("WebPrice") is None:
+                        node_data["WebPrice"] = 0.0
+                    if node_data.get("MAP") is None:
+                        node_data["MAP"] = 0.0
+                    if node_data.get("Retail") is None:
+                        node_data["Retail"] = 0.0
                     if "ImagePrimary" in node_data and node_data.get("ImagePrimary"):
                         node_data["image_asset_id"] = node_data["ImagePrimary"].get("id")
                     else:
@@ -349,6 +359,7 @@ class PimcoreClient:
                 WebPrice
                 MAP
                 Retail
+                Cost
                 BrandName
                 Model
                 VendorPartNumber
@@ -357,6 +368,8 @@ class PimcoreClient:
                 Specifications_WYSIWYG
                 WhatsInBox
                 PartPrefix
+                ProductWebpage
+                Weight
                 ImagePrimary {{
                   id
                 }}
@@ -418,6 +431,13 @@ class PimcoreClient:
                         node_data["Specifications_WYSIWYG"] = ""
                     if node_data.get("WhatsInBox") is None:
                         node_data["WhatsInBox"] = ""
+                    # Handle None values for numeric fields - convert to 0.0
+                    if node_data.get("WebPrice") is None:
+                        node_data["WebPrice"] = 0.0
+                    if node_data.get("MAP") is None:
+                        node_data["MAP"] = 0.0
+                    if node_data.get("Retail") is None:
+                        node_data["Retail"] = 0.0
                     # Extract ImagePrimary.id if it exists
                     if "ImagePrimary" in node_data and node_data.get("ImagePrimary"):
                         node_data["image_asset_id"] = node_data["ImagePrimary"].get("id")
