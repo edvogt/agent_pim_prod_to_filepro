@@ -94,9 +94,9 @@ class SyncEngine:
                     def sanitize_description(text, sku=None, brand=None):
                         if not text:
                             return ""
-                        # Remove brand name from beginning
+                        # Remove all occurrences of brand name
                         if brand:
-                            text = re.sub(r'^' + re.escape(brand) + r'\s+', '', text, flags=re.IGNORECASE)
+                            text = re.sub(re.escape(brand) + r'\s*', '', text, flags=re.IGNORECASE)
                         # Remove SKU from beginning
                         if sku:
                             text = re.sub(r'^' + re.escape(sku) + r'\s+', '', text)
