@@ -15,6 +15,7 @@ class PimcoreProduct(BaseModel):
     web_price: float = Field(0.0, alias="WebPrice")
     map_price: float = Field(0.0, alias="MAP")
     retail_price: float = Field(0.0, alias="Retail")
+    cost: Optional[float] = Field(None, alias="Cost")
     brand_name: str = Field(..., alias="BrandName")
     model: Optional[str] = Field(None, alias="Model")
     vendor_part_number: str = Field(..., alias="VendorPartNumber")
@@ -23,6 +24,9 @@ class PimcoreProduct(BaseModel):
     specifications_wysiwyg: Optional[str] = Field("", alias="Specifications_WYSIWYG")
     whats_in_box: Optional[str] = Field("", alias="WhatsInBox")
     product_type_raw: Optional[str] = Field(None, alias="ProductType")
+    part_prefix: Optional[str] = Field(None, alias="PartPrefix")
+    product_webpage: Optional[str] = Field(None, alias="ProductWebpage")
+    weight: Optional[float] = Field(None, alias="Weight")
     image_asset_id: Optional[str] = None
 
     @property
@@ -42,7 +46,7 @@ class PimcoreProduct(BaseModel):
         return str(min(prices)) if prices else "0.00"
 
     @property
-    def shopify_title(self) -> str:
+    def product_title(self) -> str:
         """Generates a product title (max 255 characters)."""
         TITLE_MAX = 255
         model_val = self.model if self.model else self.vendor_part_number

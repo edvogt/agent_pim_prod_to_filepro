@@ -1,7 +1,7 @@
 # ============================================================================
-#  sync_engine.py — Product Fetching Engine
-#  Version: 2.1.0
-#  CHANGES: Added CSV export functionality with tab-delimited format containing fields previously sent to Shopify
+#  sync_engine.py — Product Export Engine
+#  Version: 2.2.0
+#  Exports Pimcore products to tab-delimited TSV for legacy invoice systems
 # ============================================================================
 import logging
 import csv
@@ -42,7 +42,7 @@ class SyncEngine:
             logger.info(f"Processing {total} product(s)")
             logger.info(f"Writing output to: {self.output_file}")
         
-        # Define CSV header with fields previously sent to Shopify
+        # Define CSV header with fields for legacy invoice systems
         fieldnames = [
             'VENDOR PART#',
             'EAR part#',
@@ -100,8 +100,9 @@ class SyncEngine:
                         # Remove SKU from beginning
                         if sku:
                             text = re.sub(r'^' + re.escape(sku) + r'\s+', '', text)
-                        # Replace " / " with "/"
+                        # Replace " / " with "/" and " - " with "-"
                         text = text.replace(" / ", "/")
+                        text = text.replace(" - ", "-")
                         # Keep only a-z, A-Z, 0-9, /, -, and space
                         text = re.sub(r'[^a-zA-Z0-9/\- ]', '', text)
                         # Collapse multiple spaces
@@ -118,12 +119,12 @@ class SyncEngine:
                         text = ' '.join(unique_words)
                         return text.strip()
 
-                    # Prepare row data with fields previously sent to Shopify
+                    # Prepare row data for legacy invoice systems
                     row = {
                         'VENDOR PART#': p.vendor_part_number,
                         'EAR part#': format_ear_part(p.sku),
-                        'New Invoice Description': sanitize_description(p.shopify_title, p.vendor_part_number, p.brand_name),
-                        'Old Invoice Description': sanitize_description(p.get_plain_text_description(), p.vendor_part_number, p.brand_name),
+                        'New Invoice Description': sanitize_description(p.product_title, p.vendor_part_number, p.brand_name),
+                        'Old Invoice Description': sanitize_description(p.get_plain_text_description(), p.vendor_part_number, p.brand_name).replace(' for ', ' '),
                         'comment': f'Pimcore asset: {p.id}',
                         'Cost': p.cost or '',
                         'retail': p.selected_price,
@@ -157,5 +158,5 @@ class SyncEngine:
             logger.error(f"Error writing CSV file: {e}")
             raise
 # ============================================================================
-# End of sync_engine.py — Version: 2.1.0
+# End of sync_engine.py — Version: 2.2.0
 # ============================================================================

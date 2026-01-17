@@ -1,14 +1,13 @@
 # ============================================================================
-#  0_main.py — Sync Entry Point
-#  Version: 1.3.0
-#  CHANGES: Removed temporary debug code, improved error handling, added verbose mode with compact output
+#  0_main.py — Pimcore Product Export Entry Point
+#  Version: 2.2.0
+#  Fetches products from Pimcore and exports to TSV for legacy invoice systems
 # ============================================================================
 import os
 import argparse
 import logging
 from dotenv import load_dotenv
 from pimcore_client import PimcoreClient
-from shopify_client import ShopifyClient
 from sync_engine import SyncEngine
 
 def main():
@@ -19,9 +18,9 @@ def main():
     # Load .env.export with override to ensure it takes precedence
     load_dotenv(".env.export", override=True)
     
-    parser = argparse.ArgumentParser(description="Pimcore to Shopify Sync")
+    parser = argparse.ArgumentParser(description="Pimcore Product Fetch Tool")
     parser.add_argument("--prefix", help="PartPrefix to filter (required unless --test-no-filter)")
-    parser.add_argument("--max", type=int, default=5, help="Max products to sync")
+    parser.add_argument("--max", type=int, default=5, help="Max products to fetch")
     parser.add_argument("--dry-run", action="store_true", help="Simulate only")
     parser.add_argument("--test-no-filter", action="store_true", help="Test query without filter to inspect available fields")
     parser.add_argument("--test-records-exist", action="store_true", help="Test if any records exist on Pimcore server")
@@ -56,10 +55,7 @@ def main():
     required_vars = {
         "PIMCORE_BASE_URL": os.getenv("PIMCORE_BASE_URL"),
         "PIMCORE_ENDPOINT_NAME": os.getenv("PIMCORE_ENDPOINT_NAME"),
-        "PIMCORE_API_KEY": os.getenv("PIMCORE_API_KEY"),
-        "SHOPIFY_DOMAIN_MYSHOPIFY": os.getenv("SHOPIFY_DOMAIN_MYSHOPIFY"),
-        "SHOPIFY_ADMIN_TOKEN": os.getenv("SHOPIFY_ADMIN_TOKEN"),
-        "SHOPIFY_API_VERSION": os.getenv("SHOPIFY_API_VERSION")
+        "PIMCORE_API_KEY": os.getenv("PIMCORE_API_KEY")
     }
     
     missing = [var for var, value in required_vars.items() if not value]
@@ -183,36 +179,22 @@ def main():
             logger.info(f"  Image Asset ID: {p.image_asset_id}")
         return
 
-    # Normal sync mode
+    # Normal fetch mode
     if not args.prefix:
         logger.error("--prefix is required unless using --test-no-filter")
         parser.print_help()
         return
 
-    # Trim whitespace from Shopify token (common issue with .env files)
-    shopify_token = (required_vars["SHOPIFY_ADMIN_TOKEN"] or "").strip()
-    # Remove quotes if present (common .env file issue)
-    shopify_token = shopify_token.strip('"\'').strip()
-    shopify_domain = (required_vars["SHOPIFY_DOMAIN_MYSHOPIFY"] or "").strip()
-    
-    shop_client = ShopifyClient(
-        domain=shopify_domain,
-        token=shopify_token,
-        version=required_vars["SHOPIFY_API_VERSION"]
-    )
-
     config = {
         "MAX_PRODUCTS": args.max,
-        "DRY_RUN": args.dry_run,
-        "DELAY_BETWEEN_PRODUCTS": float(os.getenv("DELAY_BETWEEN_PRODUCTS", 1.5)),
-        "DELAY_AFTER_IMAGE": float(os.getenv("DELAY_AFTER_IMAGE", 1.5))
+        "DRY_RUN": args.dry_run
     }
 
-    engine = SyncEngine(pim_client, shop_client, config)
+    engine = SyncEngine(pim_client, config)
     engine.run(part_prefix=args.prefix, verbose=args.verbose)
 
 if __name__ == "__main__":
     main()
 # ============================================================================
-# End of 0_main.py — Version: 1.3.0
+# End of 0_main.py — Version: 2.2.0
 # ============================================================================
