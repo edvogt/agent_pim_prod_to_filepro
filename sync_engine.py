@@ -103,6 +103,16 @@ class SyncEngine:
                         text = re.sub(r'[^a-zA-Z0-9/\- ]', '', text)
                         # Collapse multiple spaces
                         text = re.sub(r' +', ' ', text)
+                        # Remove duplicate words (case-insensitive)
+                        words = text.split()
+                        seen = set()
+                        unique_words = []
+                        for word in words:
+                            word_lower = word.lower()
+                            if word_lower not in seen:
+                                seen.add(word_lower)
+                                unique_words.append(word)
+                        text = ' '.join(unique_words)
                         return text.strip()
 
                     # Prepare row data with fields previously sent to Shopify
