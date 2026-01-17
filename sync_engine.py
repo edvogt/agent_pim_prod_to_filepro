@@ -91,12 +91,15 @@ class SyncEngine:
                         logger.info(f"[{i}/{total}] Exporting SKU: {p.sku}")
                     
                     # Helper to sanitize description fields
-                    def sanitize_description(text, sku=None):
+                    def sanitize_description(text, sku=None, brand=None):
                         if not text:
                             return ""
-                        # Remove SKU from beginning (after brand name)
+                        # Remove brand name from beginning
+                        if brand:
+                            text = re.sub(r'^' + re.escape(brand) + r'\s+', '', text, flags=re.IGNORECASE)
+                        # Remove SKU from beginning
                         if sku:
-                            text = re.sub(r'^(\S+)\s+' + re.escape(sku) + r'\s+', r'\1 ', text)
+                            text = re.sub(r'^' + re.escape(sku) + r'\s+', '', text)
                         # Replace " / " with "/"
                         text = text.replace(" / ", "/")
                         # Keep only a-z, A-Z, 0-9, /, -, and space
@@ -119,7 +122,7 @@ class SyncEngine:
                     row = {
                         'VENDOR PART#': p.vendor_part_number,
                         'EAR part#': format_ear_part(p.sku),
-                        'New Invoice Description': sanitize_description(p.shopify_title, p.vendor_part_number),
+                        'New Invoice Description': sanitize_description(p.shopify_title, p.vendor_part_number, p.brand_name),
                         'Old Invoice Description': sanitize_description(p.get_plain_text_description(), p.vendor_part_number),
                         'comment': f'Pimcore asset: {p.id}',
                         'Cost': p.cost or '',
