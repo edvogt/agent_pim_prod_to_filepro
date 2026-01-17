@@ -1,0 +1,244 @@
+#!/usr/bin/env python3
+# ============================================================================
+#  stimport — Data Import Utility for EAR Product Database
+#  Version: 1.0.0
+#  Imports tab-delimited TSV files into FilePro database
+# ============================================================================
+import os
+import sys
+import subprocess
+import argparse
+import re
+
+# Configuration
+FPMERGE_DIR = "/appl/fpmerge"
+STIMPORT_TXT = f"{FPMERGE_DIR}/stimport.txt"
+STIMPORT_RAW = f"{FPMERGE_DIR}/stimport-raw.txt"
+STIMPORT_UTF = f"{FPMERGE_DIR}/stimport-UTF.txt"
+FP_DIR = os.environ.get("FP", "/appl/fp")
+
+DRY_RUN = False
+
+def check_user():
+    """Ensure script is run as filepro user."""
+    logname = os.environ.get("LOGNAME", "")
+    if logname != "filepro":
+        print("Run as filepro user only, quitting...")
+        sys.exit(1)
+
+def setup_permissions():
+    """Setup permissions for working files."""
+    for filepath in [STIMPORT_TXT, STIMPORT_RAW]:
+        if DRY_RUN:
+            print(f"[DRY-RUN] Would run: chfp {filepath}")
+            print(f"[DRY-RUN] Would clear: {filepath}")
+        else:
+            subprocess.run(["chfp", filepath], capture_output=True)
+            # Clear the file
+            open(filepath, 'w').close()
+
+def show_banner():
+    """Display the application banner."""
+    print("""
+Data import utility for EAR product database
+
+To run this application you'll need:
+
+    - Name of Tab delimited file to import
+    - A clean tab-delimited file in the standardized format
+    - ftp the tab-delimited file to a local directory
+
+""")
+
+def validate_import_file(filepath):
+    """Check if import file exists and is readable."""
+    if not filepath:
+        return False
+    if not os.path.isfile(filepath):
+        return False
+    if not os.access(filepath, os.R_OK):
+        return False
+    return True
+
+def clean_import_file(importfile):
+    """
+    Clean the import file:
+    - Remove empty lines
+    - Remove comment lines (starting with # or containing "#)
+    - Remove special characters
+    - Convert to UTF-8
+    - Fix formatting
+    """
+    # Read and filter the file
+    with open(importfile, 'r', encoding='utf-8', errors='ignore') as f:
+        lines = f.readlines()
+
+    cleaned_lines = []
+    for line in lines:
+        # Skip empty lines
+        if not line.strip():
+            continue
+        # Skip lines starting with # or containing "#
+        if line.startswith('#') or '"#' in line:
+            continue
+
+        # Remove special characters (equivalent to tr -d commands)
+        # Characters: \224, \226, ", \231, \274, \276, \201-\370
+        line = line.replace('"', '')
+        # Remove other special characters by keeping only printable ASCII + tabs
+        line = re.sub(r'[^\x09\x0a\x20-\x7e]', '', line)
+
+        cleaned_lines.append(line)
+
+    if DRY_RUN:
+        print(f"[DRY-RUN] Cleaned {len(cleaned_lines)} lines from {importfile}")
+        print(f"[DRY-RUN] Would write to: {STIMPORT_RAW}")
+        print(f"[DRY-RUN] Would run: iconv -f UTF-8 {STIMPORT_RAW} -c -o {STIMPORT_UTF}")
+        print(f"[DRY-RUN] Would write formatted output to: {STIMPORT_TXT}")
+        # Show sample of cleaned data
+        if cleaned_lines:
+            print(f"[DRY-RUN] Sample (first 3 lines):")
+            for line in cleaned_lines[:3]:
+                print(f"  {line.strip()[:80]}...")
+        return True
+
+    # Write raw cleaned file
+    with open(STIMPORT_RAW, 'w', encoding='utf-8') as f:
+        f.writelines(cleaned_lines)
+
+    # Convert to UTF-8 (already UTF-8, but run iconv equivalent)
+    subprocess.run([
+        'iconv', '-f', 'UTF-8', STIMPORT_RAW, '-c', '-o', STIMPORT_UTF
+    ], capture_output=True)
+
+    # Final formatting with sed equivalent
+    with open(STIMPORT_UTF, 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read()
+
+    # Apply sed transformations:
+    # s/.$/\t/  - replace last char with tab
+    # s/\t /\t/ - remove space after tab
+    # s/^ //    - remove leading space
+    # s/  / /g  - collapse double spaces
+
+    formatted_lines = []
+    for line in content.split('\n'):
+        if line:
+            # Replace last char with tab (if line has content)
+            if len(line) > 0:
+                line = line[:-1] + '\t' if line else line
+            # Remove space after tab
+            line = line.replace('\t ', '\t')
+            # Remove leading space
+            line = line.lstrip(' ')
+            # Collapse double spaces
+            while '  ' in line:
+                line = line.replace('  ', ' ')
+            formatted_lines.append(line)
+
+    # Write final file
+    with open(STIMPORT_TXT, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(formatted_lines))
+
+    return True
+
+def run_import():
+    """Run the FilePro import process."""
+    dreport_cmd = f"{FP_DIR}/dreport"
+    cmd = [
+        dreport_cmd, 'sel', '-f', 'tabimport', '-u',
+        '-Y', 'bogus', '-s', 'rec5', '-p', '/dev/null'
+    ]
+
+    if DRY_RUN:
+        print(f"[DRY-RUN] Would run: {' '.join(cmd)}")
+        return True
+
+    result = subprocess.run(cmd, capture_output=False)
+    return result.returncode == 0
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Data import utility for EAR product database"
+    )
+    parser.add_argument(
+        'importfile',
+        nargs='?',
+        help="Path to the tab-delimited TSV file to import"
+    )
+    parser.add_argument(
+        '--skip-user-check',
+        action='store_true',
+        help="Skip the filepro user check (for testing)"
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help="Simulate import without executing FilePro commands"
+    )
+    args = parser.parse_args()
+
+    # Set dry-run mode
+    global DRY_RUN
+    DRY_RUN = args.dry_run
+
+    # Check user (unless skipped for testing)
+    if not args.skip_user_check:
+        check_user()
+
+    show_banner()
+
+    # Setup working files
+    setup_permissions()
+
+    # Get import file
+    importfile = args.importfile
+    if not importfile:
+        importfile = input("Enter the name of IMPORT FILE: ").strip()
+
+    # Update permissions on import file
+    if importfile:
+        if DRY_RUN:
+            print(f"[DRY-RUN] Would run: sudo chmod +wr {importfile}")
+        else:
+            subprocess.run(['sudo', 'chmod', '+wr', importfile], capture_output=True)
+
+    # Validate import file
+    if not validate_import_file(importfile):
+        print("INVALID FILENAME or UNREADABLE")
+        rebuild = input("Unknown or No import file provided, <BREAK> to exit or <RETURN> for REBUILD: ").strip()
+        if not rebuild:
+            rebuild = 'y'
+
+        if rebuild.lower() == 'y':
+            print("Bypassing Import of new inventory parts")
+        else:
+            sys.exit(1)
+    else:
+        # Process the import file
+        print(f"Processing {importfile}...")
+
+        if not clean_import_file(importfile):
+            print("IMPORT FILE NOT FOUND")
+            sys.exit(1)
+
+        # Run FilePro import
+        run_import()
+        print("IMPORT PROCESS COMPLETE")
+
+    # Change to html directory for any post-processing
+    if DRY_RUN:
+        print("[DRY-RUN] Would change to: /appl/fileprow/html")
+    elif os.path.isdir("/appl/fileprow/html"):
+        os.chdir("/appl/fileprow/html")
+
+    print("""
+
+stimport complete.
+""")
+
+if __name__ == "__main__":
+    main()
+# ============================================================================
+# End of stimport — Version: 1.0.0
+# ============================================================================
