@@ -27,8 +27,10 @@ python 0_main.py --test-no-filter --max 3 # Inspect available fields
 ./0_run_test.sh                            # Quick test wrapper
 
 # Import TSV to FilePro (must run as filepro user)
-./stimport path/to/file.tsv               # Import TSV file
+./stimport path/to/file.tsv               # Import existing TSV file
+./stimport BRD                            # Export prefix from Pimcore, then import
 ./stimport --dry-run path/to/file.tsv     # Simulate import
+./stimport --skip-user-check file.tsv     # Bypass filepro user check (testing)
 ```
 
 ## Architecture
@@ -67,11 +69,16 @@ Pimcore GraphQL API → PimcoreClient → PimcoreProduct (Pydantic) → SyncEngi
 - Deep links: `https://pimcore.ear.net/admin/login/deeplink?object_{id}_object`
 - Hardcoded fields: `buyer/type` = "COM", `category` = "950"
 
-### stimport CLI
-- Cleans TSV files: removes special characters, empty lines, comment lines
-- Converts encoding via iconv
-- Imports to FilePro using `dreport` command
+### stimport CLI (`stimport`)
+- **Two modes**: Import existing TSV file OR export from Pimcore + import
+  - `./stimport path/to/file.tsv` - Import existing TSV
+  - `./stimport BRD` - 3-char prefix triggers Pimcore export first, then imports
+- Cleans TSV files: removes special characters, empty lines, comment lines (# or "# patterns)
+- Converts encoding via iconv to `/appl/fpmerge/stimport-UTF.txt`
+- Imports to FilePro using `dreport sel -f tabimport` command
 - Requires `filepro` user (bypass with `--skip-user-check` for testing)
+- Archives old TSV files automatically (keeps 5 most recent in `archive/`)
+- FilePro config paths: `/appl/fpmerge/` (working files), `/appl/fp/` (dreport binary)
 
 ## Configuration
 
