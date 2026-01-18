@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # ============================================================================
 #  stimport — Data Import Utility for EAR Product Database
-#  Version: 1.0.0
+#  Version: 1.1.0
 #  Imports tab-delimited TSV files into FilePro database
 # ============================================================================
 import os
@@ -9,6 +9,8 @@ import sys
 import subprocess
 import argparse
 import re
+import shutil
+import glob
 
 # Configuration
 FPMERGE_DIR = "/appl/fpmerge"
@@ -157,6 +159,63 @@ def run_import():
     result = subprocess.run(cmd, capture_output=False)
     return result.returncode == 0
 
+def archive_old_tsv_files(archive_dir="archive", keep_recent=5):
+    """
+    Move old TSV files to archive directory, keeping the most recent ones.
+
+    Args:
+        archive_dir: Directory to move old files to
+        keep_recent: Number of most recent TSV files to keep
+    """
+    # Get script directory (where TSV files are located)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    archive_path = os.path.join(script_dir, archive_dir)
+
+    # Find all TSV files in script directory
+    tsv_pattern = os.path.join(script_dir, "*.tsv")
+    tsv_files = glob.glob(tsv_pattern)
+
+    if not tsv_files:
+        print("No TSV files found to archive.")
+        return
+
+    # Sort by modification time (newest first)
+    tsv_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+
+    # Files to archive (all except the most recent ones)
+    files_to_archive = tsv_files[keep_recent:]
+
+    if not files_to_archive:
+        print(f"Only {len(tsv_files)} TSV file(s) found, nothing to archive.")
+        return
+
+    # Create archive directory if it doesn't exist
+    if DRY_RUN:
+        if not os.path.exists(archive_path):
+            print(f"[DRY-RUN] Would create directory: {archive_path}")
+    else:
+        os.makedirs(archive_path, exist_ok=True)
+
+    # Move files to archive
+    moved_count = 0
+    for filepath in files_to_archive:
+        filename = os.path.basename(filepath)
+        dest_path = os.path.join(archive_path, filename)
+
+        if DRY_RUN:
+            print(f"[DRY-RUN] Would move: {filename} -> {archive_dir}/")
+        else:
+            try:
+                shutil.move(filepath, dest_path)
+                moved_count += 1
+            except Exception as e:
+                print(f"Error moving {filename}: {e}")
+
+    if DRY_RUN:
+        print(f"[DRY-RUN] Would archive {len(files_to_archive)} TSV file(s), keeping {keep_recent} most recent")
+    else:
+        print(f"Archived {moved_count} TSV file(s) to {archive_dir}/, kept {keep_recent} most recent")
+
 def main():
     parser = argparse.ArgumentParser(
         description="Data import utility for EAR product database"
@@ -232,6 +291,9 @@ def main():
     elif os.path.isdir("/appl/fileprow/html"):
         os.chdir("/appl/fileprow/html")
 
+    # Archive old TSV files, keeping 5 most recent
+    archive_old_tsv_files()
+
     print("""
 
 stimport complete.
@@ -240,5 +302,5 @@ stimport complete.
 if __name__ == "__main__":
     main()
 # ============================================================================
-# End of stimport — Version: 1.0.0
+# End of stimport — Version: 1.1.0
 # ============================================================================
