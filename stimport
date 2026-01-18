@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # ============================================================================
 #  stimport — Data Import Utility for EAR Product Database
-#  Version: 1.1.0
+#  Version: 1.1.1
 #  Imports tab-delimited TSV files into FilePro database
 # ============================================================================
 import os
@@ -30,14 +30,26 @@ def check_user():
 
 def setup_permissions():
     """Setup permissions for working files."""
+    # Check if chfp command is available
+    chfp_available = shutil.which("chfp") is not None
+
     for filepath in [STIMPORT_TXT, STIMPORT_RAW]:
         if DRY_RUN:
             print(f"[DRY-RUN] Would run: chfp {filepath}")
             print(f"[DRY-RUN] Would clear: {filepath}")
         else:
-            subprocess.run(["chfp", filepath], capture_output=True)
-            # Clear the file
-            open(filepath, 'w').close()
+            # Run chfp if available, otherwise skip
+            if chfp_available:
+                try:
+                    subprocess.run(["chfp", filepath], capture_output=True)
+                except (PermissionError, OSError) as e:
+                    print(f"Warning: chfp failed for {filepath}: {e}")
+            # Clear the file (create parent directory if needed)
+            try:
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
+                open(filepath, 'w').close()
+            except (PermissionError, OSError) as e:
+                print(f"Warning: Could not clear {filepath}: {e}")
 
 def show_banner():
     """Display the application banner."""
@@ -302,5 +314,5 @@ stimport complete.
 if __name__ == "__main__":
     main()
 # ============================================================================
-# End of stimport — Version: 1.1.0
+# End of stimport — Version: 1.1.1
 # ============================================================================
