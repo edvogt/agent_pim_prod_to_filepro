@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # ============================================================================
 #  stimport — Data Import Utility for EAR Product Database
-#  Version: 1.1.1
+#  Version: 1.2.0
 #  Imports tab-delimited TSV files into FilePro database
 # ============================================================================
 import os
@@ -56,11 +56,10 @@ def show_banner():
     print("""
 Data import utility for EAR product database
 
-To run this application you'll need:
-
-    - Name of Tab delimited file to import
-    - A clean tab-delimited file in the standardized format
-    - ftp the tab-delimited file to a local directory
+Usage:
+    stimport <file.tsv>    Import an existing TSV file
+    stimport <PREFIX>      Export from Pimcore using 3-char prefix, then import
+                           Example: stimport BRD
 
 """)
 
@@ -83,6 +82,14 @@ def clean_import_file(importfile):
     - Convert to UTF-8
     - Fix formatting
     """
+    # In dry-run mode with non-existent file, simulate the cleaning
+    if DRY_RUN and not os.path.exists(importfile):
+        print(f"[DRY-RUN] Would clean import file: {importfile}")
+        print(f"[DRY-RUN] Would write to: {STIMPORT_RAW}")
+        print(f"[DRY-RUN] Would run: iconv -f UTF-8 {STIMPORT_RAW} -c -o {STIMPORT_UTF}")
+        print(f"[DRY-RUN] Would write formatted output to: {STIMPORT_TXT}")
+        return True
+
     # Read and filter the file
     with open(importfile, 'r', encoding='utf-8', errors='ignore') as f:
         lines = f.readlines()
@@ -171,6 +178,79 @@ def run_import():
     result = subprocess.run(cmd, capture_output=False)
     return result.returncode == 0
 
+def export_from_pimcore(prefix):
+    """
+    Export products from Pimcore using 0_main.py with the given prefix.
+
+    Args:
+        prefix: 3-character PartPrefix to filter products
+
+    Returns:
+        Path to the generated TSV file, or None if export failed
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    main_script = os.path.join(script_dir, "0_main.py")
+
+    if not os.path.exists(main_script):
+        print(f"Error: {main_script} not found")
+        return None
+
+    print(f"Exporting products from Pimcore with prefix '{prefix}'...")
+
+    # Get list of TSV files before export
+    tsv_pattern = os.path.join(script_dir, f"{prefix}-pimcore-export-*.tsv")
+    existing_files = set(glob.glob(tsv_pattern))
+
+    if DRY_RUN:
+        print(f"[DRY-RUN] Would run: python {main_script} --prefix {prefix}")
+        # Return a fake filename for dry-run
+        return f"{prefix}-pimcore-export-DRYRUN.tsv"
+
+    # Run 0_main.py to export products
+    try:
+        result = subprocess.run(
+            [sys.executable, main_script, "--prefix", prefix],
+            capture_output=True,
+            text=True,
+            cwd=script_dir
+        )
+
+        if result.returncode != 0:
+            print(f"Error exporting from Pimcore:")
+            print(result.stderr)
+            return None
+
+        # Print output from export
+        if result.stdout:
+            print(result.stdout)
+
+    except Exception as e:
+        print(f"Error running export: {e}")
+        return None
+
+    # Find the newly created TSV file
+    new_files = set(glob.glob(tsv_pattern)) - existing_files
+
+    if not new_files:
+        # Check if any TSV was created (might have different naming)
+        all_tsv = glob.glob(os.path.join(script_dir, "*.tsv"))
+        all_tsv.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        if all_tsv:
+            newest = all_tsv[0]
+            # Check if it was created in the last minute
+            import time
+            if time.time() - os.path.getmtime(newest) < 60:
+                print(f"Created: {os.path.basename(newest)}")
+                return newest
+
+        print("Warning: No new TSV file was created")
+        return None
+
+    # Return the newest file created
+    new_file = max(new_files, key=lambda x: os.path.getmtime(x))
+    print(f"Created: {os.path.basename(new_file)}")
+    return new_file
+
 def archive_old_tsv_files(archive_dir="archive", keep_recent=5):
     """
     Move old TSV files to archive directory, keeping the most recent ones.
@@ -235,7 +315,7 @@ def main():
     parser.add_argument(
         'importfile',
         nargs='?',
-        help="Path to the tab-delimited TSV file to import"
+        help="Path to TSV file to import, OR a 3-character prefix to export from Pimcore first"
     )
     parser.add_argument(
         '--skip-user-check',
@@ -265,17 +345,33 @@ def main():
     # Get import file
     importfile = args.importfile
     if not importfile:
-        importfile = input("Enter the name of IMPORT FILE: ").strip()
+        importfile = input("Enter the name of IMPORT FILE (or 3-char prefix): ").strip()
+
+    # Check if argument is a 3-character prefix (export from Pimcore first)
+    exported_from_pimcore = False
+    if importfile and len(importfile) == 3 and importfile.isalpha():
+        prefix = importfile.upper()
+        print(f"Detected 3-character prefix: {prefix}")
+        print("Will export from Pimcore first, then import...")
+        print()
+
+        tsv_file = export_from_pimcore(prefix)
+        if tsv_file:
+            importfile = tsv_file
+            exported_from_pimcore = True
+        else:
+            print("Export failed, cannot proceed with import")
+            sys.exit(1)
 
     # Update permissions on import file
-    if importfile:
-        if DRY_RUN:
-            print(f"[DRY-RUN] Would run: sudo chmod +wr {importfile}")
-        else:
-            subprocess.run(['sudo', 'chmod', '+wr', importfile], capture_output=True)
+    if importfile and not DRY_RUN:
+        subprocess.run(['sudo', 'chmod', '+wr', importfile], capture_output=True)
+    elif importfile and DRY_RUN:
+        print(f"[DRY-RUN] Would run: sudo chmod +wr {importfile}")
 
-    # Validate import file
-    if not validate_import_file(importfile):
+    # Validate import file (skip validation in dry-run if we just exported)
+    skip_validation = DRY_RUN and exported_from_pimcore
+    if not skip_validation and not validate_import_file(importfile):
         print("INVALID FILENAME or UNREADABLE")
         rebuild = input("Unknown or No import file provided, <BREAK> to exit or <RETURN> for REBUILD: ").strip()
         if not rebuild:
@@ -314,5 +410,5 @@ stimport complete.
 if __name__ == "__main__":
     main()
 # ============================================================================
-# End of stimport — Version: 1.1.1
+# End of stimport — Version: 1.2.0
 # ============================================================================
