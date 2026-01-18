@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # ============================================================================
 #  stimport — Data Import Utility for EAR Product Database
-#  Version: 1.3.0
+#  Version: 1.3.1
 #  Imports tab-delimited TSV files into FilePro database
 # ============================================================================
 import os
@@ -195,14 +195,14 @@ def export_from_pimcore(prefix):
     existing_files = set(glob.glob(tsv_pattern))
 
     if DRY_RUN:
-        print(f"[DRY-RUN] Would run: {python_exe} {main_script} --prefix {prefix}")
+        print(f"[DRY-RUN] Would run: {python_exe} {main_script} --prefix {prefix} --max 10000")
         # Return a fake filename for dry-run
         return f"{prefix}-pimcore-export-DRYRUN.tsv"
 
-    # Run 0_main.py to export products
+    # Run 0_main.py to export products (no limit on items)
     try:
         result = subprocess.run(
-            [python_exe, main_script, "--prefix", prefix],
+            [python_exe, main_script, "--prefix", prefix, "--max", "10000"],
             capture_output=True,
             text=True,
             cwd=script_dir
@@ -403,5 +403,5 @@ stimport complete.
 if __name__ == "__main__":
     main()
 # ============================================================================
-# End of stimport — Version: 1.3.0
+# End of stimport — Version: 1.3.1
 # ============================================================================
