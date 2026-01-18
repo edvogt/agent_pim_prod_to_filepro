@@ -12,7 +12,7 @@ Pimcore PIM data export tool that fetches product data from Pimcore (via FilePro
 # Setup
 python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 
-# Basic usage - exports TSV file
+# Export products to TSV
 python 0_main.py --prefix "VIZ" --max 10
 
 # Verbose mode (DEBUG logging)
@@ -25,46 +25,53 @@ python 0_main.py --prefix "VIZ" --dry-run
 python 0_main.py --test-records-exist     # Verify API access
 python 0_main.py --test-no-filter --max 3 # Inspect available fields
 ./0_run_test.sh                            # Quick test wrapper
+
+# Import TSV to FilePro (must run as filepro user)
+./stimport path/to/file.tsv               # Import TSV file
+./stimport --dry-run path/to/file.tsv     # Simulate import
 ```
 
 ## Architecture
 
 ```
 Pimcore GraphQL API → PimcoreClient → PimcoreProduct (Pydantic) → SyncEngine → TSV Export
+                                                                                    ↓
+                                                                            stimport → FilePro
 ```
 
-**Layers:**
-1. `0_main.py` - CLI, environment loading, logging configuration
-2. `pimcore_client.py` - GraphQL communication with Pimcore
-3. `models.py` - Pydantic validation and business logic
-4. `sync_engine.py` - TSV file generation (23 fields)
+**Core Files:**
+- `0_main.py` - CLI entry point, environment loading, logging configuration
+- `pimcore_client.py` - GraphQL communication with Pimcore API
+- `models.py` - Pydantic validation and business logic (price calculation, title generation)
+- `sync_engine.py` - TSV file generation (23 fields for legacy invoice systems)
+- `stimport` - Imports TSV files into FilePro database
 
-### Key Components
-
-**PimcoreClient** (`pimcore_client.py`)
-- API URL: `{base_url}/pimcore-graphql-webservices/{endpoint_name}?apikey={key}`
-- Uses `getProdM06Listing` query with `PartPrefix` filter
+### PimcoreClient (`pimcore_client.py`)
+- API URL format: `{base_url}/pimcore-graphql-webservices/{endpoint_name}?apikey={key}`
+- Uses `getProdM06Listing` query with `PartPrefix` filter (exact match)
 - Flattens `ImagePrimary.id` → `image_asset_id`
 - Converts None to empty strings (text) or 0.0 (numeric)
 
-**PimcoreProduct** (`models.py`)
+### PimcoreProduct (`models.py`)
 - Pydantic aliases map PascalCase → snake_case (e.g., `BrandName` → `brand_name`)
-- Computed properties:
+- Key computed properties:
   - `effective_web_price`: web_price if > 0, else retail_price
   - `selected_price`: Minimum of web_price, MAP, retail (where > 0)
   - `product_title`: Brand + Model + Description (255 char limit)
   - `get_sanitized_html()`: Unescapes HTML, converts `<h2>` → `<h3>`
   - `get_plain_text_description()`: Strips all HTML tags
 
-**SyncEngine** (`sync_engine.py`)
+### SyncEngine (`sync_engine.py`)
 - Output: `{prefix}-pimcore-export-{timestamp}.tsv`
-- EAR part#: alphanumeric only, hyphen after 3rd char, 20 char max
+- EAR part# format: alphanumeric only, hyphen after 3rd char, 20 char max
 - Deep links: `https://pimcore.ear.net/admin/login/deeplink?object_{id}_object`
+- Hardcoded fields: `buyer/type` = "COM", `category` = "950"
 
-### Logging
-
-- `--verbose`: DEBUG level with full API responses
-- Default: WARNING level, minimal `compact` logger output
+### stimport CLI
+- Cleans TSV files: removes special characters, empty lines, comment lines
+- Converts encoding via iconv
+- Imports to FilePro using `dreport` command
+- Requires `filepro` user (bypass with `--skip-user-check` for testing)
 
 ## Configuration
 
@@ -81,41 +88,28 @@ Loaded with `override=True`. Special handling clears `PIMCORE_BASE_URL` if set t
 
 ### GraphQL Filter Format
 
-The Pimcore API requires a specific filter format for exact matches:
+The Pimcore API requires exact match filtering:
 ```python
 filter_json = json.dumps({"PartPrefix": prefix}).replace('"', '\\"')
 # Results in: filter:"{\"PartPrefix\":\"VIZ\"}"
 ```
 
-This performs **exact match** filtering. If a product has `PartPrefix="Playback, VizrtVIZ"`, it will NOT match `prefix="VIZ"`.
-
-### Field Mapping and Validation
-
-When processing GraphQL responses:
-- Extract nested `ImagePrimary.id` and flatten to `image_asset_id`
-- Convert None values for optional string fields (`Description_Short`, `Description_Medium`, etc.) to empty strings
-- Use Pydantic aliases consistently (GraphQL uses PascalCase, Python uses snake_case)
-- Handle ValidationError exceptions gracefully - log and skip invalid products
+Products with `PartPrefix="Playback, VizrtVIZ"` will NOT match `prefix="VIZ"`.
 
 ### Price Logic
 
-The price selection follows this priority:
 1. Use `effective_web_price` (web_price if > 0, else retail_price)
 2. Calculate `selected_price` as minimum of: effective_web_price, MAP, retail_price
 3. Only consider prices > 0 in comparisons
 
-### TSV Export Fields
+### TSV Export Fields (23 total)
 
-The 23 exported fields maintain compatibility with legacy invoice systems:
+The exported fields maintain compatibility with legacy invoice systems:
 - `VENDOR PART#` and `Sku`: Both use `vendor_part_number`
-- `EAR part#`: Formatted version of SKU (alphanumeric only, hyphen after 3rd char, 20 char max)
-- `New Invoice Description`: Uses `product_title` (255 char limit with truncation)
-- `Old Invoice Description`: Plain text description (HTML tags stripped)
+- `EAR part#`: Formatted SKU (alphanumeric, hyphen after 3rd char, max 20 chars)
+- `New Invoice Description`: `product_title` (255 char limit, brand/SKU removed)
+- `Old Invoice Description`: Plain text description (HTML stripped, brand/SKU removed)
 - `LAN LINK`: Deep link to Pimcore admin object
-- `buyer/type`: Hardcoded to "COM"
-- `category`: Hardcoded to "950"
-
-## Common Development Tasks
 
 ### Adding New Pimcore Fields
 
@@ -131,14 +125,3 @@ pim_client.test_connectivity()        # Verify API access
 pim_client.list_available_fields()    # Inspect object_ProdM06 schema
 pim_client.list_available_queries()   # See all available queries
 ```
-
-### Testing Without Creating Files
-
-Always use `--dry-run` flag when testing to prevent file creation.
-
-## Version History
-
-- **v2.2.0**: Removed all legacy naming, Pimcore-to-TSV export only
-- **v2.0.0**: Focused on Pimcore export only
-- **v1.3.0**: Added MPN metafield support, web_price fallback, improved error handling
-- **v1.2.0**: Added verbose mode, MPN support, delay optimization
