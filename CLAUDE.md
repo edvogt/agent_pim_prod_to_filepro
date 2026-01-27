@@ -22,9 +22,9 @@ python 0_main.py --prefix "EAR" --max 5 --verbose
 python 0_main.py --prefix "VIZ" --dry-run
 
 # Test modes
-python 0_main.py --test-records-exist     # Verify API access
-python 0_main.py --test-no-filter --max 3 # Inspect available fields
-./0_run_test.sh                            # Quick test wrapper
+python 0_main.py --test-records-exist     # Verify API access (tests unfiltered, EAR, VIZ)
+python 0_main.py --test-no-filter --max 3 # Inspect available fields (raw product structure)
+./0_run_test.sh                            # Quick test: --prefix "EAR" --max 1 --dry-run
 
 # Import TSV to FilePro (must run as filepro user)
 ./stimport path/to/file.tsv               # Import existing TSV file
@@ -32,6 +32,14 @@ python 0_main.py --test-no-filter --max 3 # Inspect available fields
 ./stimport --dry-run path/to/file.tsv     # Simulate import
 ./stimport --skip-user-check file.tsv     # Bypass filepro user check (testing)
 ```
+
+## Logging
+
+Two logging modes controlled by `--verbose`:
+- **Compact mode** (default): WARNING level, uses a separate "compact" logger for CSV-style one-line-per-product output
+- **Verbose mode**: DEBUG level, detailed field-by-field output per product
+
+No formal test suite — testing is done via CLI flags (`--test-records-exist`, `--test-no-filter`, `--dry-run`) and `0_run_test.sh`.
 
 ## Architecture
 
@@ -59,7 +67,7 @@ Pimcore GraphQL API → PimcoreClient → PimcoreProduct (Pydantic) → SyncEngi
 - Key computed properties:
   - `effective_web_price`: web_price if > 0, else retail_price
   - `selected_price`: Minimum of web_price, MAP, retail (where > 0)
-  - `product_title`: Brand + Model + Description (255 char limit)
+  - `product_title`: Brand + Model + Description (255 char limit, truncates at word boundary with "...")
   - `get_sanitized_html()`: Unescapes HTML, converts `<h2>` → `<h3>`
   - `get_plain_text_description()`: Strips all HTML tags
 
@@ -72,7 +80,7 @@ Pimcore GraphQL API → PimcoreClient → PimcoreProduct (Pydantic) → SyncEngi
 ### stimport CLI (`stimport`)
 - **Two modes**: Import existing TSV file OR export from Pimcore + import
   - `./stimport path/to/file.tsv` - Import existing TSV
-  - `./stimport BRD` - 3-char prefix triggers Pimcore export first, then imports
+  - `./stimport BRD` - 3-char alphabetic argument triggers Pimcore export (`0_main.py --prefix BRD --max 10000`) first, then imports the result
 - Cleans TSV files: removes special characters, empty lines, comment lines (# or "# patterns)
 - Converts encoding via iconv to `/appl/fpmerge/stimport-UTF.txt`
 - Imports to FilePro using `dreport sel -f tabimport` command
