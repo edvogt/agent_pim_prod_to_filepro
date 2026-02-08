@@ -5,6 +5,7 @@
 # ============================================================================
 import logging
 import csv
+import os
 import re
 from datetime import datetime
 from pimcore_client import PimcoreClient
@@ -21,7 +22,9 @@ class SyncEngine:
         """Fetches products and exports to tab-delimited CSV file."""
         # Generate output filename with prefix and timestamp
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.output_file = f"{part_prefix}-pimcore-export-{timestamp}.tsv"
+        export_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exports")
+        os.makedirs(export_dir, exist_ok=True)
+        self.output_file = os.path.join(export_dir, f"{part_prefix}-pimcore-export-{timestamp}.tsv")
 
         if verbose:
             logger.info(f"Starting Product Fetch for Prefix: {part_prefix}")
@@ -44,7 +47,7 @@ class SyncEngine:
         
         # Define CSV header with fields for legacy invoice systems
         fieldnames = [
-            'VENDOR PART#',
+            'MPN',
             'EAR part#',
             'New Invoice Description',
             'Old Invoice Description',
@@ -122,7 +125,7 @@ class SyncEngine:
 
                     # Prepare row data for legacy invoice systems
                     row = {
-                        'VENDOR PART#': p.vendor_part_number,
+                        'MPN': p.vendor_part_number,
                         'EAR part#': format_ear_part(p.sku),
                         'New Invoice Description': sanitize_description(p.product_title, p.vendor_part_number, p.brand_name),
                         'Old Invoice Description': sanitize_description(p.get_plain_text_description(), p.vendor_part_number, p.brand_name).replace(' for ', ' '),

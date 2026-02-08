@@ -1,4 +1,4 @@
-# HTTP Client for Pimcore and Shopify API communication
+# HTTP Client for Pimcore API communication
 requests==2.32.3
 
 # Data validation and model management (Step 2)

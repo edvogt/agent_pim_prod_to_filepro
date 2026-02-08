@@ -24,6 +24,9 @@ ENV/
 *.swo
 *~
 
+# Exports
+exports/
+
 # OS
 .DS_Store
 Thumbs.db

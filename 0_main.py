@@ -91,7 +91,7 @@ def main():
         # Test 2: Try with known working prefix "EAR"
         logger.info("\n[Test 2] Testing with known working prefix 'EAR'...")
         ear_query = f'''query {{
-          getProdM06Listing(first: 10, filter: "{{\\"PartPrefix\\":\\\"EAR\\\"}}") {{
+          getProdM07Listing(first: 10, filter: "{{\\"PartPrefix\\":\\\"EAR\\\"}}") {{
             edges {{
               node {{
                 id
@@ -107,7 +107,7 @@ def main():
             ear_res.raise_for_status()
             ear_data = ear_res.json()
             if "errors" not in ear_data:
-                ear_nodes = ear_data.get("data", {}).get("getProdM06Listing", {}).get("edges", [])
+                ear_nodes = ear_data.get("data", {}).get("getProdM07Listing", {}).get("edges", [])
                 logger.info(f"Result: {len(ear_nodes)} products with PartPrefix='EAR' found")
                 if len(ear_nodes) > 0:
                     sample = ear_nodes[0].get("node", {})
@@ -118,7 +118,7 @@ def main():
         # Test 3: Try with prefix "VIZ" using exact match
         logger.info("\n[Test 3] Testing with prefix 'VIZ' (exact match)...")
         viz_query = f'''query {{
-          getProdM06Listing(first: 10, filter: "{{\\"PartPrefix\\":\\\"VIZ\\\"}}") {{
+          getProdM07Listing(first: 10, filter: "{{\\"PartPrefix\\":\\\"VIZ\\\"}}") {{
             edges {{
               node {{
                 id
@@ -133,7 +133,7 @@ def main():
             viz_res.raise_for_status()
             viz_data = viz_res.json()
             if "errors" not in viz_data:
-                viz_nodes = viz_data.get("data", {}).get("getProdM06Listing", {}).get("edges", [])
+                viz_nodes = viz_data.get("data", {}).get("getProdM07Listing", {}).get("edges", [])
                 logger.info(f"Result: {len(viz_nodes)} products with PartPrefix='VIZ' (exact) found")
         except Exception as e:
             logger.error(f"VIZ exact test failed: {e}")

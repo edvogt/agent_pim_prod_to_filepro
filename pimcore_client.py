@@ -50,7 +50,7 @@ class PimcoreClient:
         
         # Alternative: try a minimal product query
         simple_query = """query {
-          getProdM06Listing(first: 1) {
+          getProdM07Listing(first: 1) {
             edges {
               node {
                 id
@@ -94,7 +94,7 @@ class PimcoreClient:
                 
             # Check if we got data back
             if "data" in data:
-                listing_data = data.get("data", {}).get("getProdM06Listing", {})
+                listing_data = data.get("data", {}).get("getProdM07Listing", {})
                 edges = listing_data.get("edges", [])
                 logger.info(f"✅ API connectivity confirmed - Test query returned {len(edges)} product(s)")
                 
@@ -136,7 +136,7 @@ class PimcoreClient:
         
         # Query to get type information for the product object
         schema_query = """query {
-          __type(name: "object_ProdM06") {
+          __type(name: "object_ProdM07") {
             name
             fields {
               name
@@ -170,7 +170,7 @@ class PimcoreClient:
             type_info = data.get("data", {}).get("__type")
             if type_info:
                 fields = type_info.get("fields", [])
-                logger.info(f"📋 Available fields for object_ProdM06 ({len(fields)} fields):")
+                logger.info(f"📋 Available fields for object_ProdM07 ({len(fields)} fields):")
                 for field in sorted(fields, key=lambda x: x.get("name", "")):
                     field_name = field.get("name")
                     field_type = field.get("type", {})
@@ -246,7 +246,7 @@ class PimcoreClient:
         Returns all products accessible via the API.
         """
         query = f"""query {{
-          getProdM06Listing(first: {limit}) {{
+          getProdM07Listing(first: {limit}) {{
             edges {{
               node {{
                 id
@@ -291,7 +291,7 @@ class PimcoreClient:
                 logger.error(f"GraphQL errors: {json.dumps(data['errors'], indent=2)}")
                 return []
             
-            listing_data = data.get("data", {}).get("getProdM06Listing", {})
+            listing_data = data.get("data", {}).get("getProdM07Listing", {})
             all_nodes = listing_data.get("edges", [])
             
             logger.info(f"✅ Fetched {len(all_nodes)} total products (no filters applied)")
@@ -350,7 +350,7 @@ class PimcoreClient:
         filter_json = json.dumps({"PartPrefix": prefix}).replace('"', '\\"')
         
         query = f"""query {{
-          getProdM06Listing(first: {limit}, filter: "{filter_json}") {{
+          getProdM07Listing(first: {limit}, filter: "{filter_json}") {{
             edges {{
               node {{
                 id
@@ -407,7 +407,7 @@ class PimcoreClient:
                 logger.debug(f"Data keys: {list(data['data'].keys())}")
             
             # Extract nodes from response (already filtered by API)
-            listing_data = data.get("data", {}).get("getProdM06Listing", {})
+            listing_data = data.get("data", {}).get("getProdM07Listing", {})
             nodes = listing_data.get("edges", [])
             
             logger.info(f"Found {len(nodes)} product(s) with PartPrefix='{prefix}' (exact match)")
@@ -462,7 +462,7 @@ class PimcoreClient:
     def fetch_products_no_filter(self, limit: int = 5) -> List[PimcoreProduct]:
         """Test method to fetch products without filter to see available fields."""
         query = """query($limit: Int) {
-          getProdM06Listing(first: $limit) {
+          getProdM07Listing(first: $limit) {
             edges { node { id sku upc WebPrice MAP Retail BrandName Model VendorPartNumber 
                            Description_Short Description_Medium Specifications_WYSIWYG WhatsInBox
                            ImagePrimary { id } } }
@@ -491,8 +491,8 @@ class PimcoreClient:
             if "data" in data:
                 logger.info(f"Data keys: {list(data['data'].keys())}")
             
-            listing_data = data.get("data", {}).get("getProdM06Listing", {})
-            logger.info(f"TEST: getProdM06Listing structure keys: {list(listing_data.keys())}")
+            listing_data = data.get("data", {}).get("getProdM07Listing", {})
+            logger.info(f"TEST: getProdM07Listing structure keys: {list(listing_data.keys())}")
             
             # Check for totalCount or other metadata
             if "totalCount" in listing_data:

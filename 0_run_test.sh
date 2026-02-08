@@ -5,8 +5,10 @@
 # ============================================================================
 
 # Define the path to the virtual environment python
-PYTHON_BIN="/var/www/html/agent_pimcore_push_to_shopify/venv/bin/python"
-SCRIPT_PATH="/var/www/html/agent_pimcore_push_to_shopify/0_main.py"
+# Use relative paths from script location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_BIN="${SCRIPT_DIR}/venv/bin/python"
+SCRIPT_PATH="${SCRIPT_DIR}/0_main.py"
 
 echo "[$(date)] INFO: Starting test sync for prefix EAR (Max: 1)..."
 

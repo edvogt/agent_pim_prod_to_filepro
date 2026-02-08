@@ -191,7 +191,8 @@ def export_from_pimcore(prefix):
     print(f"Exporting products from Pimcore with prefix '{prefix}'...")
 
     # Get list of TSV files before export
-    tsv_pattern = os.path.join(script_dir, f"{prefix}-pimcore-export-*.tsv")
+    export_dir = os.path.join(script_dir, "exports")
+    tsv_pattern = os.path.join(export_dir, f"{prefix}-pimcore-export-*.tsv")
     existing_files = set(glob.glob(tsv_pattern))
 
     if DRY_RUN:
@@ -226,7 +227,7 @@ def export_from_pimcore(prefix):
 
     if not new_files:
         # Check if any TSV was created (might have different naming)
-        all_tsv = glob.glob(os.path.join(script_dir, "*.tsv"))
+        all_tsv = glob.glob(os.path.join(export_dir, "*.tsv"))
         all_tsv.sort(key=lambda x: os.path.getmtime(x), reverse=True)
         if all_tsv:
             newest = all_tsv[0]
@@ -252,12 +253,13 @@ def archive_old_tsv_files(archive_dir="archive", keep_recent=5):
         archive_dir: Directory to move old files to
         keep_recent: Number of most recent TSV files to keep
     """
-    # Get script directory (where TSV files are located)
+    # Get exports directory (where TSV files are located)
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    archive_path = os.path.join(script_dir, archive_dir)
+    export_dir = os.path.join(script_dir, "exports")
+    archive_path = os.path.join(export_dir, archive_dir)
 
-    # Find all TSV files in script directory
-    tsv_pattern = os.path.join(script_dir, "*.tsv")
+    # Find all TSV files in exports directory
+    tsv_pattern = os.path.join(export_dir, "*.tsv")
     tsv_files = glob.glob(tsv_pattern)
 
     if not tsv_files:

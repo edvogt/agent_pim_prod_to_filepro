@@ -1,6 +1,6 @@
+# agent_pimcore_pull_from_filepro - Component Overview
 
-Component,Responsibility,Key Bash Function Replaced
-Pimcore Client,Fetching & Asset Retrieval,"pimcore_list_nodes, download_pimcore_image"
-Sync Engine,Loop Logic & Error Recovery,Main while loop
-Pydantic Models,Data Cleaning & Logic,"html_decode, price/title logic blocks"
-Shopify Client,API Comm & Throttling,"shopify_graphql, upload_image_rest"
+Component,Responsibility,Key Functionality
+Pimcore Client,Fetching & Asset Retrieval,"GraphQL queries to Pimcore, product filtering by PartPrefix, asset/image retrieval"
+Fetch Engine,Product Display & Output,"Main product fetching loop, progress tracking, product information display (verbose/compact modes)"
+Pydantic Models,Data Cleaning & Logic,"Data validation, HTML sanitization, price calculation, title generation"

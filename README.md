@@ -86,7 +86,7 @@ This application fetches product data from Pimcore (via FilePro integration) usi
 │ ─────────────────────────────────────────────────────────── │
 │  PimcoreClient.fetch_products(prefix, limit)                │
 │  │                                                           │
-│  ├─► GraphQL Query: getProdM06Listing(filter: PartPrefix)   │
+│  ├─► GraphQL Query: getProdM07Listing(filter: PartPrefix)   │
 │  ├─► Parse Response: Extract product nodes                  │
 │  └─► Return: List[PimcoreProduct]                           │
 └─────────────────────────────────────────────────────────────┘
