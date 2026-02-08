@@ -29,4 +29,9 @@ exports/
 
 # OS
 .DS_Store
+._*
 Thumbs.db
+
+# Data files
+archive/
+*.csv
